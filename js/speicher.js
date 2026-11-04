@@ -1,7 +1,8 @@
 // Speicher auf dem Gerät (IndexedDB). Alles bleibt im Browser, nichts geht ins Netz.
 import { neuerStand, standLesen } from './logik.js';
+import * as T from './training-logik.js';
 
-const DB = 'food-boost';
+const DB = 'food-boost'; // Name bleibt, damit vorhandene Daten erhalten bleiben.
 const STORE = 'kv';
 
 function oeffnen() {
@@ -35,27 +36,49 @@ async function schreiben(key, wert) {
   });
 }
 
-export async function standLaden() {
+const warte = {};
+const naechste = {};
+
+/** Speichert gebündelt (höchstens alle 300 ms je Schlüssel), damit schnelles Tippen nicht jedes Mal schreibt. */
+function speichern(key, s) {
+  naechste[key] = s;
+  if (warte[key]) return;
+  warte[key] = setTimeout(() => wegschreiben(key), 300);
+}
+
+async function wegschreiben(key) {
+  clearTimeout(warte[key]);
+  warte[key] = null;
+  if (!(key in naechste)) return;
+  const s = naechste[key];
+  delete naechste[key];
+  try { await schreiben(key, JSON.stringify(s)); } catch (e) { console.error('Speichern fehlgeschlagen', e); }
+}
+
+/** Liest einen Stand; noch nicht geschriebene Änderungen gehen vorher auf die Platte. */
+async function laden(key, lesenFn, neuFn) {
+  if (warte[key]) await wegschreiben(key);
   try {
-    const roh = await lesen('stand');
-    return roh ? standLesen(JSON.parse(roh)) : neuerStand();
+    const roh = await lesen(key);
+    return roh ? lesenFn(JSON.parse(roh)) : neuFn();
   } catch (e) {
     console.error(e);
-    return neuerStand();
+    return neuFn();
   }
 }
 
-let warte = null;
-let naechster = null;
-/** Speichert gebündelt (höchstens alle 300 ms), damit schnelles Tippen nicht jedes Mal schreibt. */
-export function standSpeichern(s) {
-  naechster = s;
-  if (warte) return;
-  warte = setTimeout(async () => {
-    warte = null;
-    try { await schreiben('stand', JSON.stringify(naechster)); } catch (e) { console.error('Speichern fehlgeschlagen', e); }
-  }, 300);
-}
+/** Ausstehende Änderungen sofort schreiben (z. B. bevor die Seite in den Hintergrund geht). */
+export const alleSchreiben = () => Promise.all(Object.keys(naechste).map(wegschreiben));
+addEventListener('pagehide', () => { alleSchreiben(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') alleSchreiben(); });
+
+// Food & Boost (Schlüssel „stand“, wie in Version 1.0).
+export const standLaden = () => laden('stand', standLesen, neuerStand);
+export const standSpeichern = (s) => speichern('stand', s);
+
+// Training (Schlüssel „training“).
+export const trainingLaden = () => laden('training', T.standLesen, T.neuerStand);
+export const trainingSpeichern = (s) => speichern('training', s);
 
 export async function meta(key, wert) {
   if (wert === undefined) return lesen('meta:' + key);
