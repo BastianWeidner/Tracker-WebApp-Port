@@ -32,7 +32,7 @@ export const WasserMethode = { WATSON: 'Watson (Standard)', KFA: 'aus Körperfet
 // ---------- Datenklassen (mit Vorgaben) ----------
 
 export function koerper(o = {}) {
-  return { gewichtKg: 75, groesseCm: 175, geburtsjahr: 1995, geschlecht: 'MANN', kfaProzent: 20, ...o };
+  return { gewichtKg: 75, groesseCm: 178, geburtsjahr: 1995, geschlecht: 'MANN', kfaProzent: 18, ...o };
 }
 
 export function einstellungen(o = {}) {
@@ -122,7 +122,7 @@ export function eintragAendern(e, menge, zeit, mitEssen) {
 export const STAND_VERSION = 2;
 
 export function neuerStand() {
-  return { version: STAND_VERSION, koerper: koerper(), einstellungen: einstellungen(), produkte: Vorgaben.produkte(), eintraege: [], eingerichtet: false };
+  return { version: STAND_VERSION, koerper: koerper(), einstellungen: einstellungen(), produkte: Vorgaben.produkte(), eintraege: [], eingerichtet: false, profil: false };
 }
 
 /** Gelesenen Stand (Sicherung, auch aus der Android-App) mit Vorgaben auffüllen. */
@@ -137,8 +137,13 @@ export function standLesen(o) {
     produkte: o.produkte.map(produkt),
     eintraege: o.eintraege.map(eintragObj).sort((a, b) => a.zeit - b.zeit),
     eingerichtet: o.eingerichtet !== false,
+    /** Körperdaten wurden im gemeinsamen Profil eingetragen (gelten auch fürs Training). */
+    profil: !!o.profil,
   };
 }
+
+/** Körperdaten gelten als eingetragen (für Training und Übersicht). */
+export const profilGesetzt = (s) => !!(s.eingerichtet || s.profil);
 
 export const S = {
   produkt: (s, id) => s.produkte.find((p) => p.id === id) || null,
@@ -442,13 +447,19 @@ export const Boost = {
     if (summe('w_htp') > 0 && summe('w_tryptophan') > 0) {
       w.push('5-HTP und L-Tryptophan am selben Tag: gleicher Serotonin-Weg, das kann Übelkeit und Kopfschmerzen machen. Nimm nur eines von beiden, und keines zusammen mit SSRI oder MAO-Hemmern.');
     }
-    const vitD = summe('vitD');
-    if (vitD > 100) {
-      w.push(`Vitamin D heute ${Format.zahl(vitD, 0)} µg (${Format.zahl(vitD * 40, 0)} IE), über der EU-Obergrenze von 100 µg (4000 IE). Prüfe, ob mehrere deiner Produkte Vitamin D enthalten.`);
+    // Höchstmengen aus dem Wissen, gezählt über Supplements, Proteine und Booster (Essen hat oft keine Mikros).
+    const boost = heute.filter((e) => istBoost(e.kategorie));
+    for (const i of Object.values(Wissen.infos).filter((i) => i.maxTag > 0 && i.key !== 'koffein')) {
+      const v = boost.reduce((a, e) => a + (e.naehrwerte.mikros[i.key] || 0), 0);
+      if (v > i.maxTag * 1.0001) {
+        const m = Mikros.mikro(i.key);
+        const ie = i.key === 'vitD' ? ` (${Format.zahl(v * 40, 0)} IE)` : '';
+        w.push(`${m?.name || i.key} heute ${Format.zahl(v, v < 10 ? 2 : 0)} ${m?.einheit || ''}${ie} aus Supplements, mehr als ${i.maxText}.`);
+      }
     }
-    const zink = heute.filter((e) => istBoost(e.kategorie)).reduce((a, e) => a + (e.naehrwerte.mikros.zink || 0), 0);
-    if (zink > 25) w.push(`Zink aus Supplements heute ${Format.zahl(zink, 0)} mg, über der Obergrenze von 25 mg pro Tag.`);
-    const spaet = heute.filter((e) => istBoost(e.kategorie) && e.koffeinMg > 0 && Math.floor((e.zeit - tagBeginn(e.zeit)) / STUNDE) >= 17);
+    const koffeinTag = heute.reduce((a, e) => a + e.koffeinMg, 0);
+    if (koffeinTag > 400.5) w.push(`Koffein heute ${Format.zahl(koffeinTag, 0)} mg, mehr als 400 mg pro Tag (EFSA).`);
+    const spaet = boost.filter((e) => e.koffeinMg > 0 && Math.floor((e.zeit - tagBeginn(e.zeit)) / STUNDE) >= 17);
     if (spaet.length) w.push(`Koffein am Abend (${spaet.map((e) => e.name).join(', ')}): stört den Schlaf und beißt sich mit Magnesium, Glycin und 5-HTP.`);
     for (const p of s.produkte.filter((p) => p.kurWochen > 0)) {
       const n = Boost.tageAmStueck(s, p, bis - 1, tagBeginn);
@@ -457,6 +468,126 @@ export const Boost = {
     return w;
   },
 };
+
+// ---------- Wissen: Höchstmengen, Wechselwirkungen, Kur und Zeitpunkt (wie Wissen.kt) ----------
+
+/**
+ * Grundlage: EFSA-Höchstmengen (Tolerable Upper Intake Level), BfR-Empfehlungen für Nahrungsergänzungsmittel.
+ * Orientierung, keine Beratung. [maxTag] in der Einheit aus [Mikros] (0 = keine feste Grenze).
+ */
+export const Wissen = (() => {
+  const M = 'MORGENS', V = 'VOR_TRAINING', N = 'NACH_TRAINING', T = 'TAGSUEBER', A = 'ABENDS';
+  const i = (key, tipp, maxTag = 0, maxText = '', o = {}) => ({ key, tipp, maxTag, maxText, kurWochen: o.kur || 0, zeitpunkte: o.zeit || [] });
+  const infos = Object.fromEntries([
+    // Vitamine und Mineralstoffe
+    i('vitD', 'Fettlöslich, am besten zu einer Mahlzeit. 1 µg = 40 IE.', 100, '100 µg (4000 IE) pro Tag (EFSA)', { zeit: [M] }),
+    i('vitA', 'Fettlöslich, reichert sich an. Viel davon steckt schon in Leber und Multivitaminen.', 3000, '3000 µg pro Tag (EFSA)'),
+    i('vitE', 'Fettlöslich, zu einer Mahlzeit.', 300, '300 mg pro Tag (EFSA)'),
+    i('b6', 'Zu viel über längere Zeit kann Nerven schädigen.', 12, '12 mg pro Tag (EFSA 2023)'),
+    i('folat', 'Grenze gilt für Folsäure aus Supplements.', 1000, '1000 µg Folsäure pro Tag (EFSA)'),
+    i('zink', 'Zu einer Mahlzeit, nicht zusammen mit Eisen oder Calcium. Dauerhaft viel Zink senkt Kupfer.', 25, '25 mg pro Tag (EFSA)', { zeit: [T] }),
+    i('magnesium', 'Abends gut verträglich; zu viel auf einmal macht weichen Stuhl, besser aufteilen.', 250, '250 mg pro Tag aus Supplements (EFSA)', { zeit: [A] }),
+    i('calcium', 'Nicht zusammen mit Zink oder Eisen einnehmen.', 2500, '2500 mg pro Tag (EFSA)'),
+    i('selen', 'Schmaler Bereich zwischen Bedarf und zu viel.', 255, '255 µg pro Tag (EFSA 2023)'),
+    i('jod', 'Bei Schilddrüsenerkrankungen nur nach Rücksprache.', 600, '600 µg pro Tag (EFSA)'),
+    i('kupfer', 'Wird von viel Zink verdrängt.', 5, '5 mg pro Tag (EFSA)'),
+    i('eisen', 'Nur bei nachgewiesenem Mangel; nicht mit Calcium, Kaffee oder Tee.', 0),
+    i('omega3', 'Zu einer Mahlzeit. EPA und DHA zusammen bis 5 g pro Tag gelten als unbedenklich (EFSA).', 5, '5 g EPA + DHA pro Tag (EFSA)'),
+    i('koffein', 'Nicht nach etwa 16 Uhr, sonst leidet der Schlaf.', 400, '400 mg pro Tag, 200 mg auf einmal (EFSA)', { zeit: [M, V] }),
+    // Wirkstoffe
+    i('w_kreatin', 'Täglich, Zeitpunkt egal (nach dem Training praktisch). Mehr als 3 bis 5 g bringt nichts; viel trinken.', 10, '3–5 g reichen, mehr als 10 g sind unnötig', { zeit: [N] }),
+    i('w_betaalanin', 'Kribbeln ist harmlos; in Portionen bis etwa 2,5 g aufteilen. Wirkt über Wochen, nicht akut.', 6.4, '3,2–6,4 g pro Tag, aufgeteilt', { zeit: [V, N] }),
+    i('w_citrullin', '30 bis 60 Minuten vor dem Training.', 10, '6–8 g vor dem Training', { zeit: [V] }),
+    i('w_arginin', 'Vor dem Training. Senkt den Blutdruck leicht: Vorsicht mit Blutdruckmitteln und Potenzmitteln.', 9, '3–6 g pro Tag', { zeit: [V] }),
+    i('w_taurin', 'Steckt oft schon in Energy Drinks und Boostern.', 3, '3 g pro Tag gelten als sicher (EFSA)'),
+    i('w_tyrosin', 'Morgens oder vor dem Training, nüchtern. Nicht mit MAO-Hemmern oder Schilddrüsenhormonen.', 2, '0,5–2 g pro Tag', { zeit: [M, V] }),
+    i('w_glycin', 'Abends 30 bis 60 Minuten vor dem Schlafen; passt gut zu NAC.', 5, '3 g abends', { zeit: [A] }),
+    i('w_kollagen', 'Zählt als Eiweiß, ist aber kein vollständiges Protein; mit Vitamin C kombinierbar.', 20, '10–15 g pro Tag', { zeit: [T] }),
+    i('w_hmb', 'In 3 Portionen zu je 1 g über den Tag. Lohnt vor allem bei hartem Training oder im Defizit.', 3, '3 g pro Tag', { zeit: [N, T] }),
+    i('w_carnitin', 'Morgens oder vor dem Training, gern nüchtern.', 2000, '1,5–2 g pro Tag', { zeit: [M] }),
+    i('w_daa', 'Nur als Kur: 4 bis 6 Wochen, dann Pause; der Effekt lässt sonst nach.', 3, '3 g pro Tag', { kur: 6, zeit: [A] }),
+    i('w_tryptophan', 'Abends. Nie am selben Tag wie 5-HTP und nicht mit Antidepressiva (SSRI, MAO-Hemmer).', 1000, '0,5–1 g abends', { zeit: [A] }),
+    i('w_nac', 'Einmal täglich; gut kombinierbar mit Glycin.', 1200, '600–1200 mg pro Tag', { zeit: [M] }),
+    i('w_htp', 'Abends, nüchtern. Nie am selben Tag wie L-Tryptophan und nicht mit Antidepressiva (SSRI, MAO-Hemmer).', 100, '50–100 mg abends', { zeit: [A] }),
+    i('w_ashwagandha', 'Am besten als Kur von 8 bis 12 Wochen. Nicht bei Schilddrüsen- oder Lebererkrankungen, nicht in der Schwangerschaft.', 600, '300–600 mg Extrakt pro Tag', { kur: 12, zeit: [M, A] }),
+    i('w_bcaa', 'Bei genug Eiweiß am Tag meist überflüssig.', 0),
+    i('w_natrium', 'Elektrolyte vor allem bei viel Schweiß; Natrium kommt auch über Salz.', 0),
+  ].map((x) => [x.key, x]));
+
+  const menge = (key, wert) => `${Format.zahl(wert, wert < 10 ? 2 : 0)} ${Mikros.mikro(key)?.einheit || 'mg'}`;
+  const name = (key) => (key === 'koffein' ? 'Koffein' : Mikros.mikro(key)?.name || key);
+  const zuViel = (i, v) => i.maxTag > 0 && v > i.maxTag * 1.0001;
+  const ohne = (andere, p) => [...andere.filter((x) => x.id !== p.id || !p.id), p];
+
+  const W = {
+    infos,
+    info: (key) => infos[key] || null,
+    name, menge, zuViel,
+
+    /** Menge eines Stoffs pro Tag laut Plan (alle Einnahmen aller Produkte). Koffein kommt aus dem Koffeinwert. */
+    planTageswerte(produkte) {
+      const summe = {};
+      for (const p of produkte.filter((p) => p.plan.length)) {
+        const gramm = p.plan.length * einnahme(p);
+        for (const [k, v] of Object.entries(p.naehrwerte.mikros)) if (k !== 'koffein') summe[k] = (summe[k] || 0) + (v * gramm) / 100;
+        if (p.koffeinMgPro100 > 0) summe.koffein = (summe.koffein || 0) + (p.koffeinMgPro100 * gramm) / 100;
+      }
+      return summe;
+    },
+
+    /** Plan als Ganzes prüfen: Höchstmengen, Wechselwirkungen, Koffein am Abend, Kuren. Das Ernste zuerst. */
+    planPruefen(produkte) {
+      const geplant = produkte.filter((p) => p.plan.length);
+      const werte = W.planTageswerte(geplant);
+      const h = [];
+      for (const [k, v] of Object.entries(werte)) {
+        const i = infos[k];
+        if (i && zuViel(i, v)) h.push({ text: `${name(k)}: ${menge(k, v)} pro Tag laut Plan, mehr als ${i.maxText}.`, ernst: true });
+      }
+      if ((werte.w_htp || 0) > 0 && (werte.w_tryptophan || 0) > 0) {
+        h.push({ text: '5-HTP und L-Tryptophan stehen beide im Plan. Gleicher Serotonin-Weg: nur eines von beiden nehmen, nicht am selben Tag.', ernst: true });
+      }
+      if ((werte.w_htp || 0) > 0 || (werte.w_tryptophan || 0) > 0) {
+        h.push({ text: '5-HTP und L-Tryptophan nicht mit Antidepressiva (SSRI, MAO-Hemmer) kombinieren.', ernst: false });
+      }
+      for (const p of geplant.filter((p) => p.koffeinMgPro100 > 0 && p.plan.includes('ABENDS'))) {
+        h.push({ text: `${p.name} enthält Koffein und steht abends im Plan. Das beißt sich mit dem Schlaf und mit Magnesium, Glycin oder 5-HTP.`, ernst: true });
+      }
+      for (const p of geplant) {
+        const je = (p.koffeinMgPro100 * einnahme(p)) / 100;
+        if (je > 200.5) h.push({ text: `${p.name}: ${Format.zahl(je, 0)} mg Koffein auf einmal, mehr als 200 mg pro Einnahme (EFSA).`, ernst: true });
+      }
+      for (const p of geplant) {
+        const kuren = Object.keys(p.naehrwerte.mikros).map((k) => infos[k]?.kurWochen || 0).filter((w) => w > 0);
+        if (kuren.length && !p.kurWochen) h.push({ text: `${p.name} am besten als Kur: höchstens ${Math.min(...kuren)} Wochen am Stück. Beim Produkt eintragen, dann erinnert die App an die Pause.`, ernst: false });
+      }
+      if ((werte.zink || 0) > 0 && (werte.calcium || 0) > 0) {
+        h.push({ text: 'Zink und Calcium nicht zur selben Zeit nehmen, sie behindern sich bei der Aufnahme.', ernst: false });
+      }
+      return h.filter((x) => x.ernst).concat(h.filter((x) => !x.ernst));
+    },
+
+    /** Tipps beim Bearbeiten eines Produkts [p] (Entwurf); [andere]: alle Produkte. */
+    produktTipps(p, andere) {
+      const keys = [...new Set([...Object.keys(p.naehrwerte.mikros).filter((k) => k in infos), ...(p.koffeinMgPro100 > 0 ? ['koffein'] : [])])];
+      const alle = ohne(andere, p);
+      const werte = W.planTageswerte(alle);
+      const h = [];
+      for (const k of keys) {
+        const i = infos[k];
+        const v = werte[k] || 0;
+        const grenze = i.maxText ? ` Richtwert: ${i.maxText}.` : '';
+        const plan = v > 0 ? ` Laut Plan ${menge(k, v)} pro Tag.` : '';
+        h.push({ text: `${name(k)}: ${i.tipp}${grenze}${plan}`, ernst: zuViel(i, v) });
+        if (p.plan.length && i.zeitpunkte.length && !p.plan.some((z) => i.zeitpunkte.includes(z))) {
+          h.push({ text: `${name(k)} passt eher zu: ${i.zeitpunkte.map((z) => Zeitpunkt[z].text).join(' oder ')}.`, ernst: false });
+        }
+      }
+      return h.concat(W.planPruefen(alle).filter((x) => x.ernst && !h.some((y) => y.text === x.text)));
+    },
+  };
+  return W;
+})();
 
 // ---------- Barcode und Datenbank ----------
 
@@ -1053,6 +1184,48 @@ export const Vorlagen = (() => {
     v('magnesium', 'Allgemein', 'Magnesium 300 mg', S_, 1, 'Kapsel', { mikros: { magnesium: 300 }, plan: ['ABENDS'] }),
     v('zink', 'Allgemein', 'Zink 10 mg', S_, 0.4, 'Tablette', { mikros: { zink: 10 } }),
     v('koffein200', 'Allgemein', 'Koffeinkapsel 200 mg', B, 0.5, 'Kapsel', { koffein: 200, plan: ['VOR_TRAINING'] }),
+  ];
+})();
+
+// ---------- Plan-Vorlagen (wie Vorlagen.kt) ----------
+
+/**
+ * Vorlagen zum Plan-Erstellen: ein paar typische Kapseln und je Wirkstoff ein reines Pulver (Portion 1 g, Menge je
+ * Einnahme = übliche Dosis). Beim Hinzufügen wird ein eigenes Produkt angelegt; Werte bleiben als Richtwert markiert,
+ * bis sie mit dem Etikett abgeglichen sind. { name, beschreibung, produkt, keys }
+ */
+export const PlanVorlagen = (() => {
+  const pulver = (m) => {
+    const proGramm = m.einheit === 'g' ? 1 : m.einheit === 'mg' ? 1000 : 1_000_000;
+    const dosisG = m.dosis / proGramm;
+    const p = produkt({
+      id: '', name: m.name, portion: 1, kategorie: 'SUPPLEMENT', pruefen: true, planMenge: dosisG > 0 ? dosisG : 1,
+      naehrwerte: { mikros: { [m.key]: proGramm * 100 } }, kurWochen: Wissen.info(m.key)?.kurWochen || 0,
+    });
+    return { name: m.name, beschreibung: `Pulver, Feinwaage · üblich ${Format.zahl(m.dosis, 2)} ${m.einheit} pro Tag`, produkt: p, keys: [m.key] };
+  };
+  const kapsel = (name, gramm, portionName, kategorie, mikros, koffeinMg, beschreibung) => {
+    const f = 100 / gramm;
+    const p = produkt({
+      id: '', name, portion: gramm, portionName, kategorie, pruefen: true, koffeinMgPro100: koffeinMg * f,
+      naehrwerte: { mikros: Object.fromEntries(Object.entries(mikros).map(([k, v]) => [k, v * f])) },
+    });
+    return { name, beschreibung, produkt: p, keys: [...Object.keys(mikros), ...(koffeinMg > 0 ? ['koffein'] : [])] };
+  };
+  return [
+    kapsel('Vitamin D3 1000 IE', 0.3, 'Kapsel', 'SUPPLEMENT', { vitD: 25 }, 0, '25 µg je Kapsel'),
+    kapsel('Magnesium', 1, 'Kapsel', 'SUPPLEMENT', { magnesium: 150 }, 0, '150 mg je Kapsel'),
+    kapsel('Zink', 0.5, 'Kapsel', 'SUPPLEMENT', { zink: 10 }, 0, '10 mg je Kapsel'),
+    kapsel('Omega-3', 1, 'Kapsel', 'SUPPLEMENT', { omega3: 0.3 }, 0, '0,3 g EPA + DHA je Kapsel'),
+    kapsel('Koffein 200 mg', 0.5, 'Tablette', 'BOOSTER', {}, 200, '200 mg je Tablette'),
+    {
+      name: 'Whey Protein', beschreibung: 'Messlöffel 30 g, Durchschnittswerte', keys: [],
+      produkt: produkt({
+        id: '', name: 'Whey Protein', portion: 30, portionName: 'Messlöffel', kategorie: 'PROTEIN', pruefen: true,
+        naehrwerte: { kcal: 380, fett: 5, kohlenhydrate: 6, zucker: 4, eiweiss: 78, salz: 0.5 },
+      }),
+    },
+    ...Wirkstoffe.filter((m) => m.dosis > 0).map(pulver),
   ];
 })();
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from '../vendor/preact-htm.js';
 import * as T from './training-logik.js';
 import { Format, Rechnung, Belastung, Muskel, MUSKELN, Messart, MESSARTEN, SatzTyp, SATZTYPEN, FELDER, Import, Anleitung, anzahl, muskelText } from './training-logik.js';
 import { trainingLaden, trainingSpeichern, standLaden, meta, dauerhaftBitten } from './speicher.js';
+import { profilGesetzt } from './logik.js';
 import { sicherungSpeichern, dateiLesen, inhaltText, uebernehmen } from './sicherung.js';
 import { html, Page, Abschnitt, Hinweis, Klein, Leer, Knopf, Eingabe, ZahlFeld, Auswahl, Schalter, Zaehler, Chip, Dialog } from './teile.js';
 
@@ -49,7 +50,7 @@ function piep() {
 
 // ---------- App ----------
 
-export function TrainingApp({ zurUebersicht }) {
+export function TrainingApp({ zurUebersicht, profilOeffnen }) {
   const [stand, setStand] = useState(null);
   const [foodKg, setFoodKg] = useState(0);
   const [ui, setUi] = useState({ tab: 'training', stapel: [], jetzt: Date.now(), entwurf: null, uebungEntwurf: null, pauseBis: 0, import: null, laedt: false, sicherung: null, zeitraum: 7, meldung: null });
@@ -60,7 +61,7 @@ export function TrainingApp({ zurUebersicht }) {
 
   useEffect(() => {
     trainingLaden().then(setStand);
-    standLaden().then((f) => setFoodKg(f.eingerichtet ? f.koerper.gewichtKg : 0));
+    standLaden().then((f) => setFoodKg(profilGesetzt(f) ? f.koerper.gewichtKg : 0));
     const pop = () => {
       if (uiRef.current.stapel.length) setUi((u) => zurueckUi(u));
       else zurUebersicht();
@@ -99,7 +100,7 @@ export function TrainingApp({ zurUebersicht }) {
   const aktuell = () => (editorLaufend() ? standRef.current.laufend : uiRef.current.entwurf);
 
   const vm = {
-    s, ui, ansicht, uebungen, koerper, foodKg, aendern,
+    s, ui, ansicht, uebungen, koerper, foodKg, aendern, profilOeffnen,
     tab: (tab) => (tab === 'start' ? zurUebersicht() : upd(() => ({ tab, stapel: [] }))),
     oeffnen: (a) => { history.pushState({ n: uiRef.current.stapel.length + 1 }, ''); upd((u) => ({ stapel: [...u.stapel, a] })); },
     zurueck: () => upd((u) => zurueckUi(u)),
@@ -928,8 +929,9 @@ function DatenTab({ vm }) {
         ${vm.ui.laedt ? html`<div class="status"><span class="kreisel"></span>Datei wird gelesen …</div>` : html`<${Knopf} onClick=${() => datei.current.click()}>Datei wählen<//>`}
       <//>
       <${Abschnitt} titel="Einstellungen">
-        <${ZahlFeld} label="Körpergewicht (kg)" wert=${e.koerpergewicht} onWert=${(v) => E(() => ({ koerpergewicht: v }))}
-          hilfe=${e.koerpergewicht > 0 ? 'Für Klimmzüge, Dips, Kraftniveau und Verbrauch.' : `Leer = wie bei Food & Boost (${vm.foodKg > 0 ? Format.kg(vm.foodKg) : 'noch nicht eingetragen, solange 75 kg'}).`} />
+        <div class="reihe-text"><span>Körpergewicht: ${Format.kg(vm.koerper)}${vm.foodKg > 0 ? ' (aus dem Profil)' : ' (Standard, noch kein Profil)'}</span>
+          <button class="knopf text" onClick=${vm.profilOeffnen}>👤 Profil</button></div>
+        <${Klein}>Für Klimmzüge, Dips, Kraftniveau und Verbrauch. Gewicht, Größe und Alter gelten gemeinsam für Training und Food & Boost.<//>
         <${Zaehler} label="Pausen-Timer" wert=${e.pauseSek === 0 ? 'aus' : Format.dauer(e.pauseSek)}
           minus=${() => E((x) => ({ pauseSek: Math.max(0, x.pauseSek - 15) }))} plus=${() => E((x) => ({ pauseSek: Math.min(600, x.pauseSek + 15) }))} minusAn=${e.pauseSek > 0} plusAn=${e.pauseSek < 600} />
         <${Zaehler} label="Ziel: mindestens Sätze je Woche" wert=${e.wochenzielMin}

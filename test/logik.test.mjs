@@ -56,3 +56,58 @@ ok('Boost-Plan', () => {
   s = L.S.eintragen(s, L.eintragAus(p, 'x', t, 5));
   const pl = L.Boost.plan(s, t - 1000, t + 1000); assert.equal(pl.length, 2); assert.equal(pl[0].zeitpunkt, 'MORGENS'); assert(pl[0].erledigt);
 });
+
+// ---------- Einnahmeplan: Wissen und Plan-Vorlagen (aus BoostTest.kt) ----------
+const boostP = (name, gramm, portionName, kategorie, o = {}) => {
+  const f = 100 / gramm;
+  return L.produkt({ id: name, name, portion: gramm, portionName, kategorie, koffeinMgPro100: (o.koffein || 0) * f, plan: o.plan || [], planMenge: o.planMenge || 0, kurWochen: o.kur || 0,
+    naehrwerte: { mikros: Object.fromEntries(Object.entries(o.mikros || {}).map(([k, v]) => [k, v * f])) } });
+};
+ok('Neutraler Start ohne persönliche Daten', () => {
+  const s = L.neuerStand();
+  assert.deepEqual(s.koerper, { gewichtKg: 75, groesseCm: 178, geburtsjahr: 1995, geschlecht: 'MANN', kfaProzent: 18 });
+  assert(s.produkte.every((p) => !p.plan.length && !L.istBoost(p.kategorie)));
+});
+ok('Plan prüfen: Höchstmengen und Wechselwirkungen', () => {
+  const mg = boostP('Magnesium', 1, 'Kapsel', 'SUPPLEMENT', { mikros: { magnesium: 150 }, plan: ['MORGENS', 'ABENDS'] });
+  const zink = boostP('Zink', 0.5, 'Kapsel', 'SUPPLEMENT', { mikros: { zink: 25 }, plan: ['TAGSUEBER'] });
+  assert.deepEqual(L.Wissen.planPruefen([mg, zink]).filter((h) => h.ernst).map((h) => h.text.includes('Magnesium')), [true]);
+  const htp = boostP('5-HTP', 0.3, 'Kapsel', 'SUPPLEMENT', { mikros: { w_htp: 50 }, plan: ['ABENDS'] });
+  const tryp = boostP('Tryptophan', 1, '', 'SUPPLEMENT', { mikros: { w_tryptophan: 1000 }, plan: ['ABENDS'], planMenge: 1 });
+  assert(L.Wissen.planPruefen([htp, tryp]).some((h) => h.ernst && h.text.includes('5-HTP und L-Tryptophan')));
+  const guarana = boostP('Guarana', 1.2, 'Kapsel', 'BOOSTER', { koffein: 100, plan: ['ABENDS'], planMenge: 3 * 1.2 });
+  const g = L.Wissen.planPruefen([guarana]);
+  assert(g.some((h) => h.text.includes('abends')));
+  assert(g.some((h) => h.text.includes('mehr als 200 mg pro Einnahme')));
+  const d3 = boostP('D3', 0.3, 'Softgel', 'SUPPLEMENT', { mikros: { vitD: 62.5 }, plan: ['MORGENS', 'ABENDS'] });
+  assert(L.Wissen.planPruefen([d3]).some((h) => h.ernst && h.text.includes('Vitamin D')));
+  const ca = boostP('Calcium', 1, 'Tablette', 'SUPPLEMENT', { mikros: { calcium: 500 }, plan: ['MORGENS'] });
+  assert(L.Wissen.planPruefen([zink, ca]).some((h) => !h.ernst && h.text.includes('Zink und Calcium')));
+  const daa = boostP('DAA', 1, '', 'SUPPLEMENT', { mikros: { w_daa: 1 }, plan: ['ABENDS'], planMenge: 3 });
+  const t = L.Wissen.produktTipps(daa, []);
+  assert(t.some((h) => h.text.includes('Kur') && !h.ernst));
+  assert(!t.some((h) => h.text.includes('passt eher')));
+  assert(L.Wissen.produktTipps({ ...daa, plan: ['MORGENS'] }, []).some((h) => h.text.includes('passt eher zu: Abends')));
+  assert(L.Wirkstoffe.every((m) => L.Wissen.info(m.key)));
+});
+ok('Plan-Vorlagen', () => {
+  const V = L.PlanVorlagen;
+  const kreatin = V.find((v) => v.keys.join() === 'w_kreatin').produkt;
+  assert(Math.abs(L.eintragAus(kreatin, 'k', 0, L.einnahme(kreatin)).naehrwerte.mikros.w_kreatin - 5) < 1e-9);
+  const carnitin = V.find((v) => v.keys.join() === 'w_carnitin').produkt;
+  assert(Math.abs(L.eintragAus(carnitin, 'c', 0, L.einnahme(carnitin)).naehrwerte.mikros.w_carnitin - 1500) < 1e-9);
+  assert.equal(V.find((v) => v.keys.join() === 'w_daa').produkt.kurWochen, 6);
+  const koffein = V.find((v) => v.name.startsWith('Koffein')).produkt;
+  assert(Math.abs(L.eintragAus(koffein, 't', 0, koffein.portion).koffeinMg - 200) < 1e-9);
+  assert(V.every((v) => v.produkt.id === '' && L.istBoost(v.produkt.kategorie)));
+});
+ok('Warnungen des Tages: Höchstmengen aus dem Wissen', () => {
+  let s = L.neuerStand();
+  const mg = boostP('Magnesium', 1, 'Kapsel', 'SUPPLEMENT', { mikros: { magnesium: 150 } });
+  const t0 = Date.UTC(2026, 10, 4, 8);
+  s = L.S.eintragen(s, L.eintragAus(mg, 'a', t0, 1));
+  s = L.S.eintragen(s, L.eintragAus(mg, 'b', t0 + L.STUNDE, 1));
+  const tb = (z) => z - (z % L.TAG);
+  const w = L.Boost.warnungen(s, tb(t0), tb(t0) + L.TAG, tb);
+  assert(w.some((x) => x.startsWith('Magnesium heute 300 mg')), w.join('|'));
+});
