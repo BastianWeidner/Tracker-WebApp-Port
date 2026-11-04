@@ -64,7 +64,7 @@ export const workout = (w = {}) => ({
   bloecke: liste(w.bloecke).map(block), notiz: textOder(w.notiz), quelle: textOder(w.quelle),
 });
 
-/** [koerpergewicht] 0 = wie unter Food & Boost eingetragen. */
+/** [koerpergewicht]: nur noch für alte Stände; das Gewicht kommt aus dem gemeinsamen Profil. */
 export const einstellungen = (e = {}) => ({
   koerpergewicht: zahlOder(e.koerpergewicht, 0), pauseSek: Math.round(zahlOder(e.pauseSek, 90)),
   wochenzielMin: Math.round(zahlOder(e.wochenzielMin, 10)), wochenzielMax: Math.round(zahlOder(e.wochenzielMax, 20)),
@@ -313,8 +313,8 @@ export const STANDARDS = {
 /** Alle Übungen nach id: Katalog, darüber eigene. */
 export const uebungMap = (s) => ({ ...katalogNachId, ...Object.fromEntries(s.uebungen.map((u) => [u.id, u])) });
 
-/** Körpergewicht fürs Training: eigene Einstellung, sonst aus Food & Boost, sonst 75 kg. */
-export const koerperKg = (s, foodKg) => (s.einstellungen.koerpergewicht > 0 ? s.einstellungen.koerpergewicht : foodKg > 0 ? foodKg : 75);
+/** Körpergewicht fürs Training: aus dem gemeinsamen Profil, sonst ein alter eigener Wert, sonst 75 kg. */
+export const koerperKg = (s, profilKg) => (profilKg > 0 ? profilKg : s.einstellungen.koerpergewicht > 0 ? s.einstellungen.koerpergewicht : 75);
 
 // ---------- Format ----------
 

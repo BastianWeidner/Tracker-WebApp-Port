@@ -51,6 +51,10 @@ enthält beide Bereiche. Sicherungen der Android-App (Food & Boost bzw. `krafttr
 - **Essen:** Kalorien, Makros, Trinken, Eiweiß über den Tag, Zucker/Salz/gesättigte Fette, 26 Vitamine und
   Mineralstoffe gegen DGE-Referenzwerte.
 - **Boost:** Supplements, Proteine, Booster mit Einnahmeplan zum Abhaken, Wirkstoffen, Vorrat und Hinweisen.
+- **Einnahmeplan selbst bauen:** je Zeitpunkt aus eigenen Produkten oder Vorlagen (Kapseln, Whey, je Wirkstoff ein Pulver)
+  hinzufügen. Die Prüfung zeigt die Tagesmengen laut Plan, Höchstmengen für Supplements (EFSA/BfR) und
+  Wechselwirkungen (5-HTP und Tryptophan, Koffein am Abend, Zink und Calcium, Kuren).
+- **Profil:** Gewicht, Größe, Jahrgang, Geschlecht und KFA einmal in der Übersicht; gilt für Training und Food & Boost.
   30 Vorlagen (ESN, MORE, Bodylab, Bodybuilding Depot, MyProtein, ohne Marke) mit Richtwerten nach Hersteller- und
   Händlerangaben; Sorten weichen ab, darum sind sie als „Richtwert“ markiert, bis das Etikett gescannt ist.
 - **Scan:** Barcode live mit der Kamera (ZXing, WebAssembly) und Foto der Nährwerttabelle (Tesseract, deutsch).
@@ -74,7 +78,8 @@ Logik-Tests: `node test/logik.test.mjs` und `node test/training.test.mjs`.
 | Ordner | Inhalt |
 |---|---|
 | `js/haupt.js` | Einstieg, Übersicht mit den beiden Bereichen |
-| `js/logik.js` | Rechenlogik Food & Boost (aus der Android-App übertragen), Vorgaben, Vorlagen |
+| `js/profil.js` | Gemeinsames Körperprofil |
+| `js/logik.js` | Rechenlogik Food & Boost (aus der Android-App übertragen), Wissen zu Höchstmengen, Vorgaben, Vorlagen |
 | `js/training-logik.js`, `js/training.js` | Training: Übungskatalog, Rechnung, Import; Oberfläche |
 | `js/sicherung.js` | Gemeinsame Sicherungsdatei |
 | `js/app.js`, `js/teile.js` | Oberfläche Food & Boost, gemeinsame Bausteine |

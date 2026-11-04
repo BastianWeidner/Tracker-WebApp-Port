@@ -6,8 +6,10 @@ import { standLaden, trainingLaden, meta } from './speicher.js';
 import { html, Page, Klein } from './teile.js';
 import { FoodApp, InstallHinweis } from './app.js';
 import { TrainingApp } from './training.js';
+import { ProfilSeite, profilAbgleichen, profilKurz } from './profil.js';
+import { profilGesetzt } from './logik.js';
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 
 const BEREICHE = {
   training: { titel: 'Training', symbol: '🏋️', farbe: '#C2185B', text: 'Workouts mit Sätzen und Gewichten, Fortschritt je Übung, Belastung je Muskelgruppe, Import aus Stronger.' },
@@ -20,6 +22,9 @@ const installiert = () => window.matchMedia('(display-mode: standalone)').matche
 function Haupt() {
   // Zuletzt geöffneter Bereich aus der Adresse (#training, #food), sonst die Übersicht.
   const [bereich, setBereich] = useState(() => (location.hash.slice(1) in BEREICHE ? location.hash.slice(1) : null));
+  const [profil, setProfil] = useState(false);
+  const [bereit, setBereit] = useState(false);
+  useEffect(() => { profilAbgleichen().catch((e) => console.warn(e)).finally(() => setBereit(true)); }, []);
 
   useEffect(() => {
     document.documentElement.dataset.bereich = bereich || 'start';
@@ -35,12 +40,23 @@ function Haupt() {
     setBereich(null);
   };
 
-  if (bereich === 'training') return html`<${TrainingApp} zurUebersicht=${zurUebersicht} />`;
-  if (bereich === 'food') return html`<${FoodApp} zurUebersicht=${zurUebersicht} />`;
-  return html`<${Uebersicht} oeffnen=${oeffnen} />`;
+  // Profil liegt über dem offenen Bereich; die Zurück-Geste schließt es.
+  const profilOeffnen = () => { history.pushState({ profil: true }, ''); setProfil(true); };
+  useEffect(() => {
+    if (!profil) return undefined;
+    const pop = (ev) => { ev.stopImmediatePropagation(); setProfil(false); };
+    window.addEventListener('popstate', pop, { capture: true });
+    return () => window.removeEventListener('popstate', pop, { capture: true });
+  }, [profil]);
+
+  if (!bereit) return html`<div class="laden">Lädt …</div>`;
+  if (profil) return html`<${ProfilSeite} schliessen=${() => history.back()} />`;
+  if (bereich === 'training') return html`<${TrainingApp} zurUebersicht=${zurUebersicht} profilOeffnen=${profilOeffnen} />`;
+  if (bereich === 'food') return html`<${FoodApp} zurUebersicht=${zurUebersicht} profilOeffnen=${profilOeffnen} />`;
+  return html`<${Uebersicht} oeffnen=${oeffnen} profilOeffnen=${profilOeffnen} />`;
 }
 
-function Uebersicht({ oeffnen }) {
+function Uebersicht({ oeffnen, profilOeffnen }) {
   const [info, setInfo] = useState({});
   useEffect(() => {
     (async () => {
@@ -60,7 +76,7 @@ function Uebersicht({ oeffnen }) {
         const ziel = Ziele.berechnen(f.koerper, f.einstellungen, new Date().getFullYear(), buch.reduce((a, w) => a + w.kcal, 0)).kcal;
         food = `Heute ${FFormat.zahl(Ziele.summe(f, heute, morgen).kcal, 0)} von ${FFormat.zahl(ziel, 0)} kcal`;
       }
-      setInfo({ training, food, laeuft: !!t.laufend, letzte, leer: !t.workouts.length && !f.eintraege.length });
+      setInfo({ training, food, laeuft: !!t.laufend, letzte, leer: !t.workouts.length && !f.eintraege.length, profil: profilGesetzt(f) ? profilKurz(f.koerper) : null });
     })().catch((e) => console.warn(e));
   }, []);
 
@@ -76,6 +92,11 @@ function Uebersicht({ oeffnen }) {
               ${info[id] && html`<span class="kachel-stand">${info[id]}</span>`}
             </span>
           </button>`)}
+        <button class="profil-zeile" onClick=${profilOeffnen}>
+          <span class="profil-symbol" aria-hidden="true">👤</span>
+          <span class="zeile-mitte"><strong>Profil</strong><span class="klein">${info.profil || 'Gewicht, Größe und Alter für Training und Food & Boost eintragen'}</span></span>
+          <span aria-hidden="true">›</span>
+        </button>
         <${Klein} leise>Alles bleibt auf diesem Gerät, es gibt kein Konto. Eine Sicherung beider Bereiche gibt es unter Training → Daten oder Food & Boost → Profil.${info.letzte ? ` Letzte Sicherung: ${new Date(info.letzte).toLocaleDateString('de-DE')}.` : ''}<//>
         ${istIOS() && !installiert() && html`<${InstallHinweis} />`}
         <${Klein} leise>Version ${VERSION}<//>

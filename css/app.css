@@ -378,3 +378,10 @@ div.zeile-uebung { cursor: default; }
 .muskel-liste { display: flex; flex-direction: column; gap: 10px; }
 /* In der scrollenden Spalte nichts zusammenschieben (Chips-Leisten, Diagramme, Körperbild). */
 .inhalt > * { flex-shrink: 0; }
+.plan-zeile { display: flex; align-items: center; gap: 8px; }
+.plan-zeile .zeile-mitte { background: none; border: 0; padding: 6px 0; cursor: pointer; color: inherit; font: inherit; }
+.wahl { gap: 2px; margin-bottom: 6px; color: inherit; font: inherit; }
+.hinweis-zeile { margin: 6px 0 0; }
+.profil-knopf { align-self: flex-start; }
+.profil-zeile { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 18px; border: 0; border-radius: 22px; background: var(--surface-container-high); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.profil-symbol { font-size: 26px; }

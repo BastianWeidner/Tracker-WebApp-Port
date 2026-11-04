@@ -8,9 +8,10 @@ import * as T from './training-logik.js';
 import { sicherungSpeichern as dateiSichern, dateiLesen, inhaltText, uebernehmen as sicherungInDenSpeicher } from './sicherung.js';
 import { dbSuchen, dbInfo, lebensmittel, dbNamenSuchen } from './daten.js';
 import * as Scan from './scan.js';
+import { profilKurz } from './profil.js';
 import { html, Page, Abschnitt, Hinweis, Klein, Leer, Knopf, Balken, Eingabe, ZahlFeld, Auswahl, Schalter, Zaehler, Chips, Chip, Dialog } from './teile.js';
 
-const VERSION = '1.0.0';
+const VERSION = '1.2.0';
 
 // ---------- Zeit ----------
 
@@ -54,7 +55,7 @@ const TABS = [
   { id: 'profil', titel: 'Profil', symbol: '⚙️' },
 ];
 
-export function FoodApp({ zurUebersicht }) {
+export function FoodApp({ zurUebersicht, profilOeffnen }) {
   const [stand, setStand] = useState(null);
   const [ui, setUi] = useState({ tab: 'pegel', stapel: [], tag: heute(), jetzt: Date.now(), letzter: null, meldung: null, sicherung: null, mahlzeit: null, scanEan: null });
   const [letzteSicherung, setLetzteSicherung] = useState(null);
@@ -94,7 +95,7 @@ export function FoodApp({ zurUebersicht }) {
   const ansicht = ui.stapel[ui.stapel.length - 1] || null;
 
   const vm = {
-    s, ui, ansicht, trainings,
+    s, ui, ansicht, trainings, profilOeffnen,
     tab: (tab) => (tab === 'start' ? zurUebersicht() : upd(() => ({ tab, stapel: [] }))),
     oeffnen: (a) => { history.pushState({ n: uiRef.current.stapel.length + 1 }, ''); upd((u) => ({ stapel: [...u.stapel, a] })); },
     ersetzen: (a) => upd((u) => ({ stapel: [...u.stapel.slice(0, -1), a] })),
@@ -162,6 +163,24 @@ export function FoodApp({ zurUebersicht }) {
       const ohne = u.stapel.slice(0, -1);
       return { stapel: [...(ohne[ohne.length - 1]?.typ === 'produkt' ? ohne.slice(0, -1) : ohne), a] };
     }),
+    // Einnahmeplan selbst bauen (wie PlanScreen.kt)
+    planEntfernen: (p, z) => aendern((x) => {
+      const q = S.produkt(x, p.id);
+      if (!q) return x;
+      const i = q.plan.indexOf(z);
+      return S.speichern(x, { ...q, plan: q.plan.filter((_, j) => j !== i) });
+    }),
+    planHinzufuegen(p, z) {
+      aendern((x) => { const q = S.produkt(x, p.id); return q ? S.speichern(x, { ...q, plan: [...q.plan, z] }) : x; });
+      vm.zurueck();
+    },
+    /** Aus einer Vorlage ein eigenes Produkt um [z] anlegen und gleich zum Anpassen öffnen. */
+    vorlageAnlegen(v, z) {
+      const neu = { ...L.produkt(v), id: neueId(), plan: [z] };
+      aendern((x) => S.speichern(x, neu));
+      vm.ersetzen({ typ: 'produkt', id: neu.id, schluessel: neueId() });
+    },
+    planNeu: (z) => vm.ersetzen({ typ: 'produkt', id: null, schluessel: neueId(), vorlage: L.produkt({ kategorie: 'SUPPLEMENT', plan: [z] }) }),
     vorlageUebernehmen(v) {
       const p = { ...L.produkt(v.produkt), id: neueId(), vorlage: v.produkt.id };
       aendern((x) => S.speichern(x, p));
@@ -211,6 +230,8 @@ function bildschirm(vm, a) {
     case 'mahlzeitStart': return html`<${MahlzeitStart} vm=${vm} a=${a} />`;
     case 'mahlzeitPruefen': return html`<${MahlzeitPruefen} vm=${vm} />`;
     case 'vorlagen': return html`<${VorlagenScreen} vm=${vm} a=${a} />`;
+    case 'planBearbeiten': return html`<${PlanBearbeitenScreen} vm=${vm} />`;
+    case 'planHinzufuegen': return html`<${PlanHinzufuegenScreen} vm=${vm} a=${a} />`;
     default: return null;
   }
 }
@@ -228,7 +249,7 @@ function Willkommen({ vm }) {
         <p><strong>Alles bleibt auf deinem Handy.</strong> Es gibt kein Konto, und nichts wird ins Internet geschickt. Die App funktioniert auch offline.</p>
       <//>
       <${Abschnitt} titel="Deine Körperdaten">
-        <${Klein}>Damit rechnet die App Tagesziele und die Alkohol-Schätzung. Später unter „Profil“ änderbar.<//>
+        <${Klein}>Damit rechnet die App Tagesziele und die Alkohol-Schätzung. Sie gelten auch fürs Training und sind später unter „Profil“ änderbar.<//>
         <${ZahlFeld} label="Gewicht (kg)" wert=${k.gewichtKg} onWert=${(v) => setK({ ...k, gewichtKg: v })} />
         <${ZahlFeld} label="Größe (cm)" wert=${k.groesseCm} onWert=${(v) => setK({ ...k, groesseCm: v })} />
         <${ZahlFeld} label="Geburtsjahr" wert=${k.geburtsjahr} onWert=${(v) => setK({ ...k, geburtsjahr: Math.round(v) })} hilfe=${`Alter: ${Pegel.alter(k, jahr)}`} />
@@ -476,8 +497,8 @@ function BoostTab({ vm }) {
       unten=${html`<${Knopf} art="umriss" onClick=${() => vm.oeffnen({ typ: 'auswahl', filter: 'boost' })}>+ Supplement, Protein oder Booster eintragen<//>`}>
       ${warnungen.length > 0 && html`<div class="hinweis fehler"><h2>Hinweise</h2>${warnungen.map((w) => html`<p>• ${w}</p>`)}</div>`}
       <${Abschnitt} titel=${plan.length ? `Einnahmeplan: ${plan.length - offen} von ${plan.length} erledigt` : 'Einnahmeplan'}>
-        ${!plan.length && html`<${Klein}>Noch nichts geplant. Übernimm deine Produkte aus den Vorlagen (ESN, MORE, Bodylab, Bodybuilding Depot, MyProtein …) oder scanne das Etikett. Beim Produkt unter „Einnahmeplan“ wählst du die Zeitpunkte.<//>
-          <${Knopf} art="umriss" onClick=${() => vm.oeffnen({ typ: 'vorlagen' })}>＋ Aus Vorlagen wählen<//>`}
+        ${!plan.length && html`<${Klein}>Noch kein Einnahmeplan. Stell dir deinen Plan selbst zusammen, mit Hinweisen zu Höchstmengen und Wechselwirkungen.<//>
+          <${Knopf} onClick=${() => vm.oeffnen({ typ: 'planBearbeiten' })}>Einnahmeplan erstellen<//>`}
         ${ZEITPUNKTE.map((z) => {
           const punkte = plan.filter((p) => p.zeitpunkt === z);
           if (!punkte.length || (Zeitpunkt[z].training && !training)) return null;
@@ -492,7 +513,8 @@ function BoostTab({ vm }) {
               </button>`)}`;
         })}
         ${plan.some((p) => Zeitpunkt[p.zeitpunkt].training) && html`<button class="knopf text" onClick=${() => setTraining(!training)}>${training ? 'Trainingspunkte ausblenden (Ruhetag)' : 'Trainingspunkte zeigen'}</button>`}
-        ${plan.length > 0 && html`<${Klein} leise>Antippen trägt die geplante Menge jetzt ein. Ändern oder löschen unter „Heute genommen“.<//>`}
+        ${plan.length > 0 && html`<${Klein} leise>Antippen trägt die geplante Menge jetzt ein. Ändern oder löschen unter „Heute genommen“.<//>
+          <${Knopf} art="umriss" onClick=${() => vm.oeffnen({ typ: 'planBearbeiten' })}>Plan bearbeiten<//>`}
       <//>
       <${Abschnitt} titel="Wirkstoffe heute">
         ${!summen.length && !koffein && !eiweiss && html`<${Klein}>Heute noch nichts.<//>`}
@@ -621,6 +643,93 @@ function ProdukteTab({ vm, auswahl }) {
           <span>${l.name}</span><span class="klein">${l.gruppe} · ${nwText(l.naehrwerte, l.fluessig)}</span></button>`)}`}
       ${suchtAktiv && !fremd.laedt && fremd.frage === suche.trim() && !liste.length && !db.length && !fremd.bls.length && (!filter || filter === 'LEBENSMITTEL')
         && html`<${Klein} leise>Auch in den Datenbanken nichts gefunden. Anders schreiben oder scannen.<//>`}
+    <//>`;
+}
+
+// ---------- Einnahmeplan bauen (wie PlanScreen.kt) ----------
+
+/** Hinweise als Karte: ernste rot, Tipps neutral. */
+function HinweisKarte({ titel, hinweise }) {
+  if (!hinweise.length) return null;
+  const ernst = hinweise.some((h) => h.ernst);
+  return html`<div class=${'hinweis ' + (ernst ? 'fehler' : 'info')}>
+    <h2>${titel}</h2>
+    ${hinweise.map((h) => html`<p class="hinweis-zeile">${h.ernst ? '⚠ ' : '💡 '}${h.text}</p>`)}
+  </div>`;
+}
+
+function PlanBearbeitenScreen({ vm }) {
+  const produkte = vm.s.produkte;
+  const pruefung = useMemo(() => L.Wissen.planPruefen(produkte), [produkte]);
+  const werte = useMemo(() => L.Wissen.planTageswerte(produkte), [produkte]);
+  const reihe = (k) => { const i = Mikros.alle.findIndex((m) => m.key === k); return i < 0 ? 999 : i; };
+  return html`
+    <${Page} titel="Einnahmeplan" zurueck=${vm.zurueck}>
+      ${pruefung.length ? html`<${HinweisKarte} titel="Prüfung des Plans" hinweise=${pruefung} />`
+        : html`<${Klein}>Füge je Zeitpunkt hinzu, was du nimmst. Die App prüft dabei Höchstmengen pro Tag, Wechselwirkungen und Kuren.<//>`}
+      ${ZEITPUNKTE.map((z) => {
+        const hier = produkte.filter((p) => p.plan.includes(z));
+        return html`<${Abschnitt} key=${z} titel=${`${Zeitpunkt[z].symbol} ${Zeitpunkt[z].text}${Zeitpunkt[z].training ? ' (an Trainingstagen)' : ''}`}>
+          ${hier.map((p) => {
+            const n = p.plan.filter((x) => x === z).length;
+            return html`<div class="plan-zeile" key=${p.id}>
+              <button class="zeile-mitte" onClick=${() => vm.oeffnen({ typ: 'produkt', id: p.id })}>
+                <span class="name">${p.name}${n > 1 ? ` (${n}×)` : ''}</span>
+                <span class="klein">${Boost.mengeText(p, L.einnahme(p))} · antippen zum Ändern</span>
+              </button>
+              <button class="knopf text" onClick=${() => vm.planEntfernen(p, z)}>Entfernen</button>
+            </div>`;
+          })}
+          <${Knopf} art="umriss" onClick=${() => vm.oeffnen({ typ: 'planHinzufuegen', zeitpunkt: z })}>+ Hinzufügen<//>
+        <//>`;
+      })}
+      ${Object.keys(werte).length > 0 && html`
+        <${Abschnitt} titel="Pro Tag laut Plan">
+          ${Object.entries(werte).sort(([a], [b]) => reihe(a) - reihe(b)).map(([k, v]) => {
+            const i = L.Wissen.info(k);
+            const zu = i && L.Wissen.zuViel(i, v);
+            return html`<p class=${zu ? 'rot' : ''} key=${k}>${L.Wissen.name(k)}: ${L.Wissen.menge(k, v)}${i?.maxText ? ` (Richtwert ${i.maxText})` : ''}</p>`;
+          })}
+          <${Klein} leise>Gezählt sind alle Einnahmen, auch die an Trainingstagen. Orientierung, keine medizinische Beratung.<//>
+        <//>`}
+    <//>`;
+}
+
+function PlanHinzufuegenScreen({ vm, a }) {
+  const z = a.zeitpunkt;
+  const [suche, setSuche] = useState('');
+  const w = L.Suchtext.woerter(suche);
+  const passt = (name) => !suche.trim() || L.Suchtext.passt(name, w);
+  const eigene = vm.s.produkte.filter((p) => L.istBoost(p.kategorie) && !p.plan.includes(z) && passt(p.name))
+    .sort((x, y) => x.name.toLowerCase().localeCompare(y.name.toLowerCase()));
+  const vorlagen = L.PlanVorlagen.filter((v) => passt(v.name));
+  const marken = L.Vorlagen.filter((v) => passt(`${v.produkt.name} ${v.marke}`) && v.marke !== 'Allgemein');
+  return html`
+    <${Page} titel=${`${Zeitpunkt[z].symbol} ${Zeitpunkt[z].text}: hinzufügen`} zurueck=${vm.zurueck}
+      unten=${html`<${Knopf} art="umriss" onClick=${() => vm.planNeu(z)}>+ Eigenes Supplement anlegen<//>`}>
+      <${Eingabe} label="Suchen" wert=${suche} onInput=${setSuche} />
+      ${eigene.length > 0 && html`<h3 class="zwischen">Deine Produkte</h3>
+        ${eigene.map((p) => html`<button class="wahl" key=${p.id} onClick=${() => vm.planHinzufuegen(p, z)}>
+          <span class="name">${Kategorie[p.kategorie].symbol} ${p.name}</span>
+          <span class="klein">${Boost.mengeText(p, L.einnahme(p))}${p.plan.length ? ' · schon: ' + p.plan.map((x) => Zeitpunkt[x].symbol).join(' ') : ''}</span>
+        </button>`)}`}
+      <h3 class="zwischen">Vorlagen</h3>
+      <${Klein}>Legt ein eigenes Produkt mit üblicher Menge an; danach Name, Menge und Etikett anpassen.<//>
+      ${vorlagen.map((v) => {
+        const tipp = v.keys.map((k) => L.Wissen.info(k)).find(Boolean);
+        const passtZeit = !tipp || !tipp.zeitpunkte.length || tipp.zeitpunkte.includes(z);
+        return html`<button class="wahl" key=${'v:' + v.name} onClick=${() => vm.vorlageAnlegen(v.produkt, z)}>
+          <span class="name">${v.name}</span>
+          <span class="klein">${v.beschreibung}</span>
+          ${tipp && html`<span class="klein">💡 ${tipp.tipp}${tipp.maxText ? ` Richtwert: ${tipp.maxText}.` : ''}</span>`}
+          ${!passtZeit && html`<span class="klein rot">Passt eher zu: ${tipp.zeitpunkte.map((x) => Zeitpunkt[x].text).join(' oder ')}</span>`}
+        </button>`;
+      })}
+      ${marken.length > 0 && html`<h3 class="zwischen">Markenprodukte</h3>
+        ${marken.map((v) => html`<button class="wahl" key=${v.produkt.id} onClick=${() => vm.vorlageAnlegen({ ...v.produkt, vorlage: v.produkt.id }, z)}>
+          <span class="name">${Kategorie[v.produkt.kategorie].symbol} ${v.produkt.name}</span>
+          <span class="klein">${produktInfo({ ...v.produkt, plan: [] }).replace(' · Richtwert', '')}${v.notiz ? ' · ' + v.notiz : ''}</span>
+        </button>`)}`}
     <//>`;
 }
 
@@ -782,6 +891,7 @@ function ProduktScreen({ vm, a }) {
         ${frei.length > 0 && html`<${Auswahl} label="Hinzufügen" optionen=${[null, ...frei]} wert=${null} text=${(m) => (m ? m.name : 'wählen')} onWahl=${(m) => m && mikroSetzen({ ...p.naehrwerte.mikros, [m.key]: 0 })} />`}
       <//>
       ${boost && html`
+        <${HinweisKarte} titel="Hinweise zu den Wirkstoffen" hinweise=${L.Wissen.produktTipps(p, s.produkte)} />
         <${Abschnitt} titel="Einnahmeplan">
           ${ZEITPUNKTE.map((z) => {
             const n = p.plan.filter((x) => x === z).length;
@@ -1139,18 +1249,15 @@ function ProfilTab({ vm }) {
     lebensmittel().then(setBls).catch(() => setBls(false));
     navigator.storage?.persisted?.().then(setDauerhaft).catch(() => {});
   }, []);
-  const K = (f) => vm.koerper((x) => ({ ...x, ...f }));
   const E = (f) => vm.einstellungen((x) => ({ ...x, ...f }));
   const t = vm.letzteSicherung;
 
   return html`
     <${Page} titel="Profil und Rechnung">
       <${Abschnitt} titel="Körper">
-        <${ZahlFeld} label="Gewicht (kg)" wert=${k.gewichtKg} onWert=${(v) => K({ gewichtKg: v })} />
-        <${ZahlFeld} label="Größe (cm)" wert=${k.groesseCm} onWert=${(v) => K({ groesseCm: v })} />
-        <${ZahlFeld} label="Geburtsjahr" wert=${k.geburtsjahr} onWert=${(v) => K({ geburtsjahr: Math.round(v) })} hilfe=${`Alter: ${Pegel.alter(k, jahr)}`} />
-        <${Auswahl} label="Geschlecht" optionen=${['MANN', 'FRAU']} wert=${k.geschlecht} text=${(g) => L.Geschlecht[g]} onWahl=${(g) => K({ geschlecht: g })} />
-        <${ZahlFeld} label="Körperfettanteil (%)" wert=${k.kfaProzent} onWert=${(v) => K({ kfaProzent: v })} hilfe="Nur für die Körperwasser-Methode „aus Körperfettanteil“." />
+        <p>${profilKurz(k)}${k.kfaProzent > 0 ? ` · KFA ${Format.zahl(k.kfaProzent)} %` : ''}</p>
+        <${Klein}>Gemeinsames Profil für Training und Food & Boost.<//>
+        <${Knopf} art="umriss" onClick=${vm.profilOeffnen}>👤 Profil ändern<//>
       <//>
       <${Abschnitt} titel="Sicherung">
         <${Klein}>Alles (Einträge, Produkte, Einstellungen und die Trainings) als eine Datei, z. B. in „Dateien“ oder iCloud. Damit geht es auch auf ein neues Handy. Sicherungen der Android-App lassen sich laden.<//>
