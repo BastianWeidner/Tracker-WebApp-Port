@@ -11,7 +11,7 @@ const TAG = 86_400_000;
 const neueId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()).replace(/-/g, '').slice(0, 16);
 
 const TABS = [
-  { id: 'start', titel: 'Start', symbol: '‹' },
+  { id: 'start', titel: 'Start', symbol: '🏠' },
   { id: 'training', titel: 'Training', symbol: '🏋️' },
   { id: 'verlauf', titel: 'Verlauf', symbol: '📈' },
   { id: 'muskeln', titel: 'Muskeln', symbol: '💪' },
@@ -812,7 +812,7 @@ function MuskelnTab({ vm }) {
       <div class="muskel-liste">
         ${[...MUSKELN].sort((a, b) => intens[b] - intens[a]).map((m) => {
           const sz = saetze[m];
-          const wert = modus === 'BELASTUNG' ? `${Format.zahl(sz, 1)} Sätze${sz === 0 ? '' : sz < zielMin ? ' · wenig' : sz > zielMax ? ' · viel' : ' · im Ziel'}`
+          const wert = modus === 'BELASTUNG' ? `${Format.zahl(sz, 1)} ${sz === 1 ? 'Satz' : 'Sätze'}${sz === 0 ? '' : sz < zielMin ? ' · wenig' : sz > zielMax ? ' · viel' : ' · im Ziel'}`
             : modus === 'ERHOLUNG' ? `${Format.zahl(erholung[m] * 100, 0)} % erholt` : niveau[m] ? `${Belastung.stufen[niveau[m].stufe]} · ${niveau[m].punkte}` : '–';
           return html`<div class=${'balken' + (modus === 'ERHOLUNG' ? ' ueber' : '')}>
             <div class="balken-zeile"><span>${Muskel[m].titel}</span><span>${wert}</span></div>

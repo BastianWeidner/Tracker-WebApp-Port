@@ -26,8 +26,8 @@ export async function dateiLesen(datei) {
 /** Kurzbeschreibung für die Rückfrage vor dem Übernehmen. */
 export function inhaltText(x) {
   const t = [];
-  if (x.food) t.push(`Food & Boost mit ${x.food.eintraege.length} Einträgen und ${x.food.produkte.length} Produkten`);
-  if (x.training) t.push(`Training mit ${x.training.workouts.length} Trainings`);
+  if (x.food) t.push(`Food & Boost mit ${T.anzahl(x.food.eintraege.length, 'Eintrag', 'Einträgen')} und ${T.anzahl(x.food.produkte.length, 'Produkt', 'Produkten')}`);
+  if (x.training) t.push(`Training mit ${T.anzahl(x.training.workouts.length, 'Training', 'Trainings')}`);
   return t.join(' und ');
 }
 

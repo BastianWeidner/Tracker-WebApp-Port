@@ -1,9 +1,11 @@
 // Oberfläche von „Food & Boost“ als Web-App. Aufbau wie in der Android-App (TrackerSubApp, *Screen.kt):
 // Tabs Pegel/Koffein, Essen, Boost, Produkte, Profil und darüber ein Stapel von Ansichten (Eintragen, Produkt, Scan …).
-import { render, useState, useEffect, useMemo, useRef } from '../vendor/preact-htm.js';
+import { useState, useEffect, useMemo, useRef } from '../vendor/preact-htm.js';
 import * as L from './logik.js';
 import { Boost, Format, Kategorie, KATEGORIEN, Mikros, Pegel, S, Wirkstoffe, Zeitpunkt, ZEITPUNKTE, Ziele, Zeitachse, MINUTE, STUNDE } from './logik.js';
-import { standLaden, standSpeichern, meta, dauerhaftBitten } from './speicher.js';
+import { standLaden, standSpeichern, trainingLaden, meta, dauerhaftBitten } from './speicher.js';
+import * as T from './training-logik.js';
+import { sicherungSpeichern as dateiSichern, dateiLesen, inhaltText, uebernehmen as sicherungInDenSpeicher } from './sicherung.js';
 import { dbSuchen, dbInfo, lebensmittel, dbNamenSuchen } from './daten.js';
 import * as Scan from './scan.js';
 import { html, Page, Abschnitt, Hinweis, Klein, Leer, Knopf, Balken, Eingabe, ZahlFeld, Auswahl, Schalter, Zaehler, Chips, Chip, Dialog } from './teile.js';
@@ -44,6 +46,7 @@ const installiert = () => window.matchMedia('(display-mode: standalone)').matche
 // ---------- App ----------
 
 const TABS = [
+  { id: 'start', titel: 'Start', symbol: '🏠' },
   { id: 'pegel', titel: 'Pegel', symbol: '🍺' },
   { id: 'essen', titel: 'Essen', symbol: '🍽️' },
   { id: 'boost', titel: 'Boost', symbol: '💊' },
@@ -51,25 +54,31 @@ const TABS = [
   { id: 'profil', titel: 'Profil', symbol: '⚙️' },
 ];
 
-function App() {
+export function FoodApp({ zurUebersicht }) {
   const [stand, setStand] = useState(null);
   const [ui, setUi] = useState({ tab: 'pegel', stapel: [], tag: heute(), jetzt: Date.now(), letzter: null, meldung: null, sicherung: null, mahlzeit: null, scanEan: null });
   const [letzteSicherung, setLetzteSicherung] = useState(null);
+  const [trainings, setTrainings] = useState([]);
   const standRef = useRef(null);
   const uiRef = useRef(ui);
   uiRef.current = ui;
   standRef.current = stand;
 
   useEffect(() => {
-    standLaden().then(setStand);
+    standLaden().then((st) => {
+      setStand(st);
+      // Trainings aus dem Bereich Training (wie das Trainingsbuch der Android-App) für das Tagesziel.
+      trainingLaden().then((t) => setTrainings(T.Verbrauch.buch(t, st.koerper.gewichtKg))).catch(() => {});
+    });
     meta('letzteSicherung').then((v) => setLetzteSicherung(v || null));
+    const vorladen = setTimeout(() => Scan.vorladen(), 3000);
     const t = setInterval(() => setUi((u) => ({ ...u, jetzt: Date.now() })), 30_000);
     const sichtbar = () => document.visibilityState === 'visible' && setUi((u) => ({ ...u, jetzt: Date.now() }));
     document.addEventListener('visibilitychange', sichtbar);
     // Zurück-Geste des Browsers bzw. Android schließt die oberste Ansicht.
-    const pop = () => { if (uiRef.current.stapel.length) setUi((u) => ({ ...u, stapel: u.stapel.slice(0, -1) })); };
+    const pop = () => { if (uiRef.current.stapel.length) setUi((u) => ({ ...u, stapel: u.stapel.slice(0, -1) })); else zurUebersicht(); };
     window.addEventListener('popstate', pop);
-    return () => { clearInterval(t); document.removeEventListener('visibilitychange', sichtbar); window.removeEventListener('popstate', pop); };
+    return () => { clearTimeout(vorladen); clearInterval(t); document.removeEventListener('visibilitychange', sichtbar); window.removeEventListener('popstate', pop); };
   }, []);
 
   if (!stand) return html`<div class="laden">Lädt …</div>`;
@@ -85,8 +94,8 @@ function App() {
   const ansicht = ui.stapel[ui.stapel.length - 1] || null;
 
   const vm = {
-    s, ui, ansicht,
-    tab: (tab) => upd(() => ({ tab, stapel: [] })),
+    s, ui, ansicht, trainings,
+    tab: (tab) => (tab === 'start' ? zurUebersicht() : upd(() => ({ tab, stapel: [] }))),
     oeffnen: (a) => { history.pushState({ n: uiRef.current.stapel.length + 1 }, ''); upd((u) => ({ stapel: [...u.stapel, a] })); },
     ersetzen: (a) => upd((u) => ({ stapel: [...u.stapel.slice(0, -1), a] })),
     zurueck: () => upd((u) => ({ stapel: u.stapel.slice(0, -1) })),
@@ -140,6 +149,13 @@ function App() {
     letzteSicherung,
     setMahlzeit: (m) => upd((u) => ({ mahlzeit: typeof m === 'function' ? m(u.mahlzeit) : m })),
     sicherungAnbieten: (st) => upd(() => ({ sicherung: st })),
+    async sicherungUebernehmen(x) {
+      upd(() => ({ sicherung: null }));
+      await sicherungInDenSpeicher(x);
+      if (x.food) aendern(() => ({ ...x.food, eingerichtet: true }));
+      if (x.training) setTrainings(T.Verbrauch.buch(x.training, (x.food || standRef.current).koerper.gewichtKg));
+      upd(() => ({ meldung: x.food ? 'Sicherung übernommen.' : 'Trainings übernommen. Food & Boost bleibt, wie es war.' }));
+    },
     letzterWeg: () => upd(() => ({ letzter: null })),
     /** Scan schließen; liegt darunter das Formular, aus dem gescannt wurde, wird es durch [a] ersetzt. */
     zumFormular: (a) => upd((u) => {
@@ -167,8 +183,8 @@ function App() {
           })}
         </nav>`}
       ${ui.sicherung && html`<${Dialog}
-        text=${`Sicherung mit ${ui.sicherung.eintraege.length} Einträgen und ${ui.sicherung.produkte.length} Produkten übernehmen? Der jetzige Stand wird dabei ersetzt.`}
-        jaText="Übernehmen" ja=${() => { const neu = ui.sicherung; aendern(() => ({ ...neu, eingerichtet: true })); upd(() => ({ sicherung: null, meldung: 'Sicherung übernommen.' })); }}
+        text=${`Sicherung übernehmen (${inhaltText(ui.sicherung)})? Der jetzige Stand wird dabei ersetzt.`}
+        jaText="Übernehmen" ja=${() => vm.sicherungUebernehmen(ui.sicherung)}
         nein=${() => upd(() => ({ sicherung: null }))} />`}
       ${ui.meldung && html`<${Dialog} text=${ui.meldung} ja=${() => upd(() => ({ meldung: null }))} />`}
     </div>`;
@@ -225,17 +241,17 @@ function Willkommen({ vm }) {
       ${istIOS() && !installiert() && html`<${InstallHinweis} />`}
     <//>
     </div>
-    ${vm.ui.sicherung && html`<${Dialog} text=${`Sicherung mit ${vm.ui.sicherung.eintraege.length} Einträgen und ${vm.ui.sicherung.produkte.length} Produkten übernehmen?`}
-      jaText="Übernehmen" ja=${() => { const neu = vm.ui.sicherung; vm.sicherungAnbieten(null); vm.aendern(() => ({ ...neu, eingerichtet: true })); dauerhaftBitten(); }}
+    ${vm.ui.sicherung && html`<${Dialog} text=${`Sicherung übernehmen (${inhaltText(vm.ui.sicherung)})?`}
+      jaText="Übernehmen" ja=${() => { vm.sicherungUebernehmen(vm.ui.sicherung); dauerhaftBitten(); }}
       nein=${() => vm.sicherungAnbieten(null)} />`}
     ${vm.ui.meldung && html`<${Dialog} text=${vm.ui.meldung} ja=${() => vm.meldung(null)} />`}
     </div>`;
 }
 
-const InstallHinweis = () => html`
+export const InstallHinweis = () => html`
   <${Hinweis} art="info">
     <strong>Als App installieren:</strong> In Safari unten auf <span class="teilen">Teilen</span> tippen, dann „Zum Home-Bildschirm“.
-    Danach startet Food & Boost wie eine App, auch ohne Internet, und Safari löscht die Daten nicht so schnell.
+    Danach startet die App wie eine App, auch ohne Internet, und Safari löscht die Daten nicht so schnell.
   <//>`;
 
 // ---------- Pegel ----------
@@ -359,13 +375,15 @@ function EssenTab({ vm }) {
   const von = ui.tag, bis = tagPlus(ui.tag, 1);
   const summe = useMemo(() => Ziele.summe(s, von, bis), [s, von]);
   const jahr = new Date().getFullYear();
-  const ziele = Ziele.berechnen(s.koerper, s.einstellungen, jahr);
+  const trainings = vm.trainings.filter((t) => t.start >= von && t.start < bis);
+  const trainingKcal = trainings.reduce((a, t) => a + t.kcal, 0);
+  const ziele = Ziele.berechnen(s.koerper, s.einstellungen, jahr, trainingKcal);
   const eintraege = S.eintraege(s, von, bis);
   const alkohol = eintraege.reduce((a, e) => a + e.alkoholG, 0);
   const koffein = eintraege.reduce((a, e) => a + e.koffeinMg, 0);
   const [alleMikros, setAlleMikros] = useState(false);
   const boost = eintraege.filter((e) => L.istBoost(e.kategorie));
-  const [getrunken, trinkZiel] = Ziele.trinken(eintraege, s.koerper, s.einstellungen, false);
+  const [getrunken, trinkZiel] = Ziele.trinken(eintraege, s.koerper, s.einstellungen, trainings.length > 0);
   const verteilung = Ziele.eiweissVerteilung(eintraege, s.koerper, (ms) => new Date(ms).getHours());
   const auffaellig = Mikros.auffaellig(eintraege, s.koerper.geschlecht);
   const g = s.koerper.geschlecht;
@@ -382,6 +400,7 @@ function EssenTab({ vm }) {
       <${SicherungsErinnerung} vm=${vm} />
       <${Abschnitt} titel="Energie und Makros">
         <${Balken} name="Kalorien" wert=${summe.kcal} ziel=${ziele.kcal} einheit="kcal" gross />
+        ${trainings.length > 0 && html`<${Klein}>Training: ${trainings.map((t) => `${t.name || 'Training'} ~${t.kcal} kcal`).join(', ')}${s.einstellungen.trainingEinrechnen ? ' (im Ziel enthalten)' : ' (nicht eingerechnet, siehe Profil)'}<//>`}
         <${Balken} name="Eiweiß" wert=${summe.eiweiss} ziel=${ziele.eiweiss} einheit="g" />
         <${Balken} name="Kohlenhydrate" wert=${summe.kohlenhydrate} ziel=${ziele.kohlenhydrate} einheit="g" />
         <${Balken} name="Fett" wert=${summe.fett} ziel=${ziele.fett} einheit="g" />
@@ -1093,35 +1112,14 @@ function LebensmittelWahl({ vm, zeile, roh, onWahl, onAbbruch }) {
 // ---------- Profil ----------
 
 async function sicherungSpeichern(vm) {
-  const datum = new Date().toISOString().slice(0, 10);
-  const text = JSON.stringify(vm.s);
-  const name = `food-boost-sicherung-${datum}.json`;
-  const datei = new File([text], name, { type: 'application/json' });
-  try {
-    if (navigator.canShare?.({ files: [datei] })) {
-      await navigator.share({ files: [datei], title: 'Food & Boost Sicherung' });
-      vm.sicherungGespeichert();
-      return;
-    }
-  } catch (e) {
-    if (e.name === 'AbortError') return;
-  }
-  const url = URL.createObjectURL(datei);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  vm.sicherungGespeichert();
+  if (await dateiSichern({ food: vm.s })) vm.sicherungGespeichert();
 }
 
 function SicherungLaden({ vm }) {
   const ref = useRef();
   async function laden(datei) {
     if (!datei) return;
-    try { vm.sicherungAnbieten(L.standLesen(JSON.parse(await datei.text()))); } catch (e) { vm.meldung('Die Datei ließ sich nicht lesen: ' + e.message); }
+    try { vm.sicherungAnbieten(await dateiLesen(datei)); } catch (e) { vm.meldung('Die Datei ließ sich nicht lesen: ' + e.message); }
   }
   return html`
     <input ref=${ref} type="file" accept="application/json,.json,text/plain" hidden onChange=${(e) => { laden(e.target.files[0]); e.target.value = ''; }} />
@@ -1155,7 +1153,7 @@ function ProfilTab({ vm }) {
         <${ZahlFeld} label="Körperfettanteil (%)" wert=${k.kfaProzent} onWert=${(v) => K({ kfaProzent: v })} hilfe="Nur für die Körperwasser-Methode „aus Körperfettanteil“." />
       <//>
       <${Abschnitt} titel="Sicherung">
-        <${Klein}>Alles (Einträge, Produkte, Einstellungen) als Datei, z. B. in „Dateien“ oder iCloud. Damit geht es auch auf ein neues Handy, und die Datei passt auch zur Android-App.<//>
+        <${Klein}>Alles (Einträge, Produkte, Einstellungen und die Trainings) als eine Datei, z. B. in „Dateien“ oder iCloud. Damit geht es auch auf ein neues Handy. Sicherungen der Android-App lassen sich laden.<//>
         <${Klein}>${t ? `Letzte Sicherung: ${new Date(t).toLocaleDateString('de-DE')}.` : 'Noch keine Sicherung gemacht.'} Safari löscht Daten von Web-Apps, die einige Wochen nicht geöffnet wurden. Darum ab und zu sichern.<//>
         ${dauerhaft === true && html`<${Klein} leise>Der Browser hat zugesagt, die Daten nicht von selbst zu löschen.<//>`}
         <div class="reihe">
@@ -1180,6 +1178,9 @@ function ProfilTab({ vm }) {
       <${Abschnitt} titel="Tagesziele">
         <${Klein}>Grundumsatz ${Format.zahl(ziele.grundumsatz, 0)} kcal (Mifflin-St Jeor). Ziel ${Format.zahl(ziele.kcal, 0)} kcal: Eiweiß ${Format.zahl(ziele.eiweiss, 0)} g, Kohlenhydrate ${Format.zahl(ziele.kohlenhydrate, 0)} g, Fett ${Format.zahl(ziele.fett, 0)} g.<//>
         <${ZahlFeld} label="Aktivitätsfaktor" wert=${e.aktivitaetsfaktor} onWert=${(v) => E({ aktivitaetsfaktor: v })} hilfe="1,2 sitzend · 1,4 leicht · 1,6 aktiv · 1,7 sehr sportlich · 1,9 Leistungssport" />
+        <${Schalter} label="Trainings einrechnen" an=${e.trainingEinrechnen} onWechsel=${(v) => E({ trainingEinrechnen: v })}
+          hilfe="Dann gilt für den Alltag der Faktor unten, und jedes Training aus dem Bereich Training kommt mit seinem geschätzten Verbrauch dazu." />
+        ${e.trainingEinrechnen && html`<${ZahlFeld} label="Faktor ohne Training" wert=${e.grundfaktorMitTraining} onWert=${(v) => E({ grundfaktorMitTraining: v })} hilfe="1,4 Bürojob · 1,5 viel auf den Beinen. Ersetzt den Aktivitätsfaktor." />`}
         <${ZahlFeld} label="Trinken (ml pro kg)" wert=${e.trinkenMlProKg} onWert=${(v) => E({ trinkenMlProKg: v })} hilfe="Etwa 35." />
         <${ZahlFeld} label="Kalorienziel fest (kcal)" wert=${e.kcalZielManuell} onWert=${(v) => E({ kcalZielManuell: v })} hilfe="Leer = aus Grundumsatz × Aktivitätsfaktor. Für Aufbau etwa +300, für Diät etwa −500." />
         <${ZahlFeld} label="Eiweiß (g pro kg)" wert=${e.eiweissProKg} onWert=${(v) => E({ eiweissProKg: v })} hilfe="Allgemein 0,8 bis 1,0; Kraftsport 1,6 bis 2,2." />
@@ -1199,11 +1200,3 @@ function ProfilTab({ vm }) {
     <//>`;
 }
 
-// ---------- Start ----------
-
-render(html`<${App} />`, document.getElementById('app'));
-
-if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('sw.js').catch((e) => console.warn('Service Worker', e));
-}
-setTimeout(() => Scan.vorladen(), 3000);
