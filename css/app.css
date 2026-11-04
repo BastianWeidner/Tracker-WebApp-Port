@@ -1,4 +1,4 @@
-/* Food & Boost: Aussehen wie die Dach-App (Farbschema aus #E53935, Nunito für Überschriften und Knöpfe). */
+/* Gym (Training, Food & Boost): Aussehen wie die Dach-App (Farbschema aus #E53935, Nunito für Überschriften und Knöpfe). */
 @font-face { font-family: 'Nunito'; font-weight: 600; src: url('../fonts/nunito_semibold.ttf') format('truetype'); font-display: swap; }
 @font-face { font-family: 'Nunito'; font-weight: 700; src: url('../fonts/nunito_bold.ttf') format('truetype'); font-display: swap; }
 @font-face { font-family: 'Nunito'; font-weight: 800; src: url('../fonts/nunito_extrabold.ttf') format('truetype'); font-display: swap; }
@@ -50,6 +50,60 @@
     --surface-container: #271d1c;
     --surface-container-high: #312826;
     --surface-container-highest: #3d3231;
+    --error: #ffb4ab;
+    --error-container: #93000a;
+    --on-error-container: #ffdad6;
+  }
+}
+
+/* Bereich Training: Farbschema aus #C2185B (wie die Krafttraining-Unter-App). */
+:root[data-bereich="training"] {
+  --primary: #ba0755;
+  --on-primary: #ffffff;
+  --primary-container: #ffd9e0;
+  --on-primary-container: #3f0018;
+  --secondary: #81515b;
+  --secondary-container: #ffd9e0;
+  --on-secondary-container: #360d19;
+  --tertiary: #7f552d;
+  --tertiary-container: #ffdcc0;
+  --on-tertiary-container: #2a1800;
+  --background: #fff8f9;
+  --on-surface: #22191b;
+  --surface-variant: #f7dce0;
+  --on-surface-variant: #564145;
+  --outline: #897175;
+  --outline-variant: #dac0c5;
+  --surface-container-low: #fef0f3;
+  --surface-container: #f8ebed;
+  --surface-container-high: #f2e5e7;
+  --surface-container-highest: #eddfe1;
+  --error: #ba1a1a;
+  --error-container: #ffdad6;
+  --on-error-container: #410002;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-bereich="training"] {
+    --primary: #ffb1c1;
+    --on-primary: #66002b;
+    --primary-container: #8f003f;
+    --on-primary-container: #ffd9e0;
+    --secondary: #f0b8c2;
+    --secondary-container: #673943;
+    --on-secondary-container: #ffd9e0;
+    --tertiary: #f1bc8f;
+    --tertiary-container: #653e16;
+    --on-tertiary-container: #ffdcc0;
+    --background: #1b1113;
+    --on-surface: #eddfe1;
+    --surface-variant: #564145;
+    --on-surface-variant: #dac0c5;
+    --outline: #a38b8f;
+    --outline-variant: #564145;
+    --surface-container-low: #22191b;
+    --surface-container: #271d1f;
+    --surface-container-high: #312729;
+    --surface-container-highest: #3c3234;
     --error: #ffb4ab;
     --error-container: #93000a;
     --on-error-container: #ffdad6;
@@ -240,3 +294,87 @@ button { font: inherit; color: inherit; }
 .dialog { background: var(--surface-container-high); border-radius: 26px; padding: 22px 20px 10px; width: 100%; max-width: 420px; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,.3); }
 .dialog h2 { margin: 0 0 10px; font-size: 20px; }
 .dialog-knoepfe { display: flex; justify-content: flex-end; gap: 4px; margin-top: 12px; }
+
+/* Übersicht */
+.kachel {
+  display: flex; gap: 14px; align-items: center; width: 100%; text-align: left; cursor: pointer; border: 0; border-radius: 22px; padding: 18px 16px;
+  background: color-mix(in srgb, var(--kachel) 14%, var(--background)); color: var(--on-surface);
+}
+.kachel-symbol { flex: none; width: 56px; height: 56px; border-radius: 18px; display: grid; place-items: center; font-size: 30px; background: var(--kachel); }
+.kachel-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.kachel-text strong { font-family: 'Nunito', sans-serif; font-size: 21px; font-weight: 800; }
+.kachel-stand { font-weight: 700; color: var(--kachel); margin-top: 4px; }
+.kachel.laeuft .kachel-symbol { animation: puls 1.6s ease-in-out infinite; }
+@keyframes puls { 50% { transform: scale(1.08); } }
+@media (prefers-color-scheme: dark) {
+  .kachel { background: color-mix(in srgb, var(--kachel) 22%, var(--background)); }
+  .kachel-stand { color: color-mix(in srgb, var(--kachel) 55%, #fff); }
+}
+
+/* Allgemein */
+.mehrzeilig { white-space: pre-line; }
+.waehlbar { user-select: text; -webkit-user-select: text; }
+.ellipse { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.zweizeilig { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.stark-farbe { color: var(--primary); font-weight: 700; }
+.pflicht-text { color: #c46f00; }
+.monat { font-family: 'Nunito', sans-serif; font-weight: 800; color: var(--primary); font-size: 14px; margin: 6px 0 -4px; }
+.knopf.text.eng { min-width: 34px; padding: 0 6px; }
+.reihe.zwei-eins > :last-child { flex: 2; }
+
+/* Training */
+.karte.laeuft { background: var(--primary-container); color: var(--on-primary-container); }
+.quer { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px; padding: 0 16px 4px; scrollbar-width: none; }
+.quer::-webkit-scrollbar { display: none; }
+.karte.vorlage { flex: none; width: 200px; display: flex; flex-direction: column; gap: 4px; cursor: pointer; padding: 12px 14px; color: inherit; }
+.karte.vorlage > * + * { margin-top: 0; }
+.karte.vorlage .klein:not(.stark-farbe) { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.karte.workout { display: flex; flex-direction: column; gap: 2px; cursor: pointer; padding: 12px 14px; color: inherit; }
+.karte.workout > * + * { margin-top: 0; }
+.uhrzeile { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.uhrzeile .gross-wert { flex: 1; }
+.pause { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 18px; color: var(--primary); }
+.karte.block { padding: 10px 6px 6px 12px; }
+.karte.block > * + * { margin-top: 6px; }
+.block-kopf { display: flex; align-items: center; gap: 0; }
+.block-name { flex: 1; min-width: 0; display: flex; flex-direction: column; text-align: left; background: none; border: 0; padding: 2px 0; cursor: pointer; color: inherit; }
+.block-name strong { font-family: 'Nunito', sans-serif; font-size: 17px; }
+.satz { display: flex; align-items: flex-end; gap: 6px; padding: 2px 0; border-radius: 12px; }
+.satz.erledigt .zahl-klein input { background: color-mix(in srgb, var(--primary) 14%, var(--surface-container-low)); }
+.satz-typ { flex: none; width: 40px; height: 44px; border-radius: 12px; border: 1.5px solid var(--outline); background: none; font-weight: 800; font-family: 'Nunito', sans-serif; color: var(--on-surface); cursor: pointer; }
+.zahl-klein { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.zahl-klein span { font-size: 11.5px; color: var(--on-surface-variant); font-weight: 700; padding-left: 4px; }
+.zahl-klein input {
+  font: inherit; font-size: 17px; font-weight: 700; text-align: right; color: var(--on-surface); background: var(--surface-container-low);
+  border: 1.5px solid var(--outline-variant); border-radius: 12px; padding: 9px 10px; width: 100%; height: 44px; -webkit-appearance: none; appearance: none;
+}
+.zahl-klein input:focus { outline: none; border-color: var(--primary); border-width: 2px; }
+.haken { flex: none; width: 44px; height: 44px; border-radius: 12px; border: 1.5px solid var(--outline); background: none; font-size: 20px; font-weight: 800; color: var(--outline); cursor: pointer; }
+.haken.an { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.satz-last { padding-left: 46px; }
+.satz-text { display: flex; gap: 10px; align-items: baseline; }
+.satz-text > strong { width: 22px; }
+.satz-text > span:nth-child(2) { flex: 1; }
+.liste { display: flex; flex-direction: column; }
+.zeile-uebung { display: flex; flex-direction: column; gap: 1px; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--outline-variant); padding: 10px 2px; cursor: pointer; color: inherit; }
+div.zeile-uebung { cursor: default; }
+
+/* Diagramme */
+.diagramm svg { width: 100%; height: auto; display: block; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.diagramm .gitter { stroke: var(--outline-variant); stroke-width: 1; }
+.diagramm .achse { fill: var(--on-surface-variant); font-size: 10px; font-family: -apple-system, sans-serif; }
+.diagramm .linie { fill: none; stroke: var(--primary); stroke-width: 2.5; stroke-linejoin: round; }
+.diagramm .punkt { fill: var(--primary); }
+.diagramm .wahl-punkt { fill: none; stroke: var(--primary); stroke-width: 2; }
+.saeulen { display: flex; align-items: flex-end; gap: 4px; height: 112px; }
+.saeule { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+.saeule .klein { font-size: 11px; }
+.saeule-balken { width: 100%; border-radius: 4px 4px 0 0; background: var(--outline-variant); }
+.saeule-balken.an { background: var(--primary); }
+.saeule-text { font-size: 10.5px; color: var(--on-surface-variant); white-space: nowrap; height: 15px; }
+.koerper { width: 100%; max-width: 420px; height: auto; display: block; margin: 0 auto; }
+.figur-umriss { fill: var(--background); stroke: var(--on-surface); stroke-width: 1.6; stroke-linejoin: round; }
+.figur-muskel { stroke: color-mix(in srgb, var(--on-surface) 70%, transparent); stroke-width: 1; stroke-linejoin: round; }
+.muskel-liste { display: flex; flex-direction: column; gap: 10px; }
+/* In der scrollenden Spalte nichts zusammenschieben (Chips-Leisten, Diagramme, Körperbild). */
+.inhalt > * { flex-shrink: 0; }

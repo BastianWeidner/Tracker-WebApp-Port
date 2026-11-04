@@ -1,7 +1,7 @@
 {
-  "name": "Food & Boost",
-  "short_name": "Food & Boost",
-  "description": "Kalorien, Makros, Supplements, Koffein und Alkohol. Alles bleibt auf dem Gerät.",
+  "name": "Gym: Training und Food & Boost",
+  "short_name": "Gym",
+  "description": "Workouts, Kalorien, Makros, Supplements, Koffein und Alkohol. Alles bleibt auf dem Gerät.",
   "lang": "de",
   "start_url": "./",
   "scope": "./",

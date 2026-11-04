@@ -1,7 +1,14 @@
-# Food & Boost (Web-App)
+# Gym: Training und Food & Boost (Web-App)
 
-Kalorien, Makros und Mikros, Supplements mit Einnahmeplan und Vorrat sowie Koffein und Alkohol mit geschätztem Abbau.
-Web-Fassung der Unter-App „Food & Boost“ aus der Android-Dach-App, damit sie auch auf dem iPhone läuft.
+Beim Start eine Übersicht mit zwei Bereichen:
+
+- **Training:** Workouts mit Sätzen, Wiederholungen und Gewicht, Fortschritt je Übung, Belastung je Muskelgruppe,
+  Import aus Stronger, Strong, Hevy und FitNotes.
+- **Food & Boost:** Kalorien, Makros und Mikros, Supplements mit Einnahmeplan und Vorrat sowie Koffein und Alkohol
+  mit geschätztem Abbau.
+
+Web-Fassung der Unter-Apps „Krafttraining“ und „Food & Boost“ aus der Android-Dach-App, damit sie auch auf dem
+iPhone laufen.
 
 **Alles bleibt auf dem Gerät.** Kein Konto, kein Server, keine Werbung. Die Daten liegen im Browser-Speicher des
 Handys (IndexedDB). Nach dem ersten Öffnen läuft die App komplett offline, auch der Barcode-Scan, die
@@ -11,16 +18,33 @@ Barcode-Datenbank mit 237.140 Produkten und die Texterkennung für Nährwerttabe
 
 1. Den Link in **Safari** öffnen (nicht in Instagram, WhatsApp-Vorschau o. Ä.).
 2. Unten auf **Teilen** ⬆︎ tippen, dann **„Zum Home-Bildschirm“**.
-3. Food & Boost vom Home-Bildschirm starten, Körperdaten eintragen, fertig.
+3. „Gym“ vom Home-Bildschirm starten, Bereich wählen, fertig. Food & Boost fragt beim ersten Öffnen nach den Körperdaten.
 
 Beim ersten Start mit Internet lädt die App alles (ca. 30 MB) für den Offline-Betrieb. Danach braucht sie kein Netz.
 Android: in Chrome öffnen, Menü ⋮ → „App installieren“.
 
 **Wichtig: Sicherung.** Safari kann die Daten einer Web-App löschen, wenn sie mehrere Wochen nicht geöffnet wurde.
-Unter „Profil“ › „Sicherung“ › „Speichern“ eine Datei in „Dateien“ oder iCloud ablegen. Die App erinnert daran.
-Sicherungen passen auch zur Android-App (gleiches Format).
+Unter Training › „Daten“ oder Food & Boost › „Profil“ eine Sicherung in „Dateien“ oder iCloud ablegen; eine Datei
+enthält beide Bereiche. Sicherungen der Android-App (Food & Boost bzw. `krafttraining.json`) lassen sich laden.
 
 ## Was drin ist
+
+### Training
+
+- **Training:** leeres Training starten oder ein früheres wiederholen. Rund 150 eingebaute Übungen (Bewegung ×
+  Gerät) oder eigene. Je Satz Gewicht und Wiederholungen (Körpergewicht ± Zusatz, Sekunden, Strecke/Zeit),
+  Satzart (Aufwärmen, Drop, bis Versagen), Abhaken mit Pausen-Timer und Ton, „Letztes Mal“ als Vorschlag,
+  neue Bestwerte nach dem Training. Der Bildschirm bleibt während des Trainings an.
+- **Verlauf:** Trainings je Woche, alle Übungen. Je Übung ein Diagramm (geschätztes 1RM nach Epley, schwerstes
+  Gewicht, Volumen, Wiederholungen; 3 Monate, 1 Jahr, alles), Bestwerte, Kraftniveau bei Grundübungen.
+- **Muskeln:** Körperbild vorn und hinten nach Belastung (harte Sätze in 7/14/30 Tagen gegen 10–20 je Woche),
+  Erholung oder Kraftniveau.
+- **Daten:** Import von CSV-Dateien (Stronger-Datenauskunft, Strong, Hevy, FitNotes, freie Spaltenzuordnung),
+  Anleitung und Musterbrief für die DSGVO-Auskunft bei Stronger, Einstellungen, Sicherung.
+- **Verbrauch:** Jedes Training bekommt einen geschätzten Zusatzverbrauch (Netto-MET). Food & Boost zeigt ihn
+  beim Tag an und rechnet ihn auf Wunsch ins Kalorienziel ein (Profil › „Trainings einrechnen“).
+
+### Food & Boost
 
 - **Pegel/Koffein:** Blutalkohol nach Widmark mit Körperwasser (Watson oder Körperfettanteil), Koffein mit
   Halbwertszeit, Verlauf −6 h bis +12 h. Nur Schätzwerte, nicht zur Entscheidung übers Fahren.
@@ -45,12 +69,15 @@ Im Repo liegt nur die App, keine persönlichen Daten.
 Reines HTML/JavaScript ohne Build-Schritt (Preact + htm aus `vendor/`). Nach jeder Änderung
 `python3 werkzeuge/sw-bauen.py` ausführen: Das schreibt `sw.js` mit neuer Version, sonst sehen installierte
 Apps die Änderung nicht. Lokal testen: `python3 -m http.server` im Ordner, dann `http://localhost:8000`.
-Logik-Tests: `node test/logik.test.mjs`.
+Logik-Tests: `node test/logik.test.mjs` und `node test/training.test.mjs`.
 
 | Ordner | Inhalt |
 |---|---|
-| `js/logik.js` | Rechenlogik (aus der Android-App übertragen), Vorgaben, Vorlagen |
-| `js/app.js`, `js/teile.js` | Oberfläche |
+| `js/haupt.js` | Einstieg, Übersicht mit den beiden Bereichen |
+| `js/logik.js` | Rechenlogik Food & Boost (aus der Android-App übertragen), Vorgaben, Vorlagen |
+| `js/training-logik.js`, `js/training.js` | Training: Übungskatalog, Rechnung, Import; Oberfläche |
+| `js/sicherung.js` | Gemeinsame Sicherungsdatei |
+| `js/app.js`, `js/teile.js` | Oberfläche Food & Boost, gemeinsame Bausteine |
 | `js/scan.js` | Kamera, Barcode, Texterkennung |
 | `js/daten.js`, `js/speicher.js` | Mitgelieferte Datenbanken, Speicher auf dem Gerät |
 | `daten/` | Barcode-Datenbank in 100 Teilen, Lebensmittel-Tabelle |
