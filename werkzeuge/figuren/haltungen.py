@@ -916,18 +916,13 @@ arch("seilspringen", "vorn", seilspringen, dauer=0.8, punkte=H2, art="SEIL", ank
 
 # ================= Ergänzungen für Import-Übungen =================
 def katana(x):
-    # Katana Extension von hinten: Kabel kommt unten von der Gegenseite, Hand startet hinter der
-    # Gegenschulter (Ellbogen hoch, Arm gebeugt) und streckt diagonal nach oben außen – wie ein Schwert ziehen
-    # Oberarm bleibt waagerecht in Linie mit den Schultern, nur der Unterarm bewegt sich:
-    # vom Kopf weg nach unten entlang des Kabels (zur Gegenseite unten) und zurück
-    p = hal("hinten", fuss=(1, 66), s1=176, w1=178, o1=90, o2=176, u2=178)
-    e = gelenke("hinten", p)["E1"]
-    zum_kabel = winkel_zu(e, (10, 100)) % 360
-    u = L(318, zum_kabel, x)
-    return hal("hinten", fuss=(1, 66), s1=176, w1=178, o1=90, u1=u, o2=176, u2=178)
+    # Katana Extension von hinten: Oberarm bleibt schräg nach oben außen (Ellbogen hoch). Start mit der Hand am Kopf
+    # (Unterarm über den Oberarm nach hinten gefaltet, „Katana am Rücken greifen“), dann streckt der Arm ganz aus.
+    # Das Kabel kommt von der Gegenseite aus etwa 1 m Höhe.
+    return hal("hinten", fuss=(1, 66), s1=176, w1=178, o1=45, u1=L(-88, 45, x), o2=176, u2=178)
 
 
-arch("katana", "hinten", katana, punkte=H1, anker=(10, 100), art="KABEL")
+arch("katana", "hinten", katana, punkte=H1, anker=(10, 50), art="KABEL")
 
 
 def rotatoren(x):
