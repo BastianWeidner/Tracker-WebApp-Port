@@ -99,7 +99,7 @@ WINKEL_IX = [IX[n] for n in P if n not in ("hx", "hy", "z")]
 
 
 def arch(id, ansicht, fn, szene=(), punkte=(), anker=None, art=None, winkel=None, dauer=2.6, stange=False, anker_b=None,
-         schluessel=SCHLUESSEL, zyklisch=False, vorn=False):
+         schluessel=SCHLUESSEL, zyklisch=False, vorn=False, versatz=None):
     # zyklisch: läuft im Kreis (x = 0..1 immer vorwärts, Bild 1 = Bild 0), statt hin und her
     bilder = [fn(i / (schluessel - 1)) for i in range(schluessel)]
     # Winkel stetig machen: zwischen zwei Schlüsselbildern höchstens 180° Sprung,
@@ -118,6 +118,8 @@ def arch(id, ansicht, fn, szene=(), punkte=(), anker=None, art=None, winkel=None
         last["winkel"] = winkel
     if stange:
         last["stange"] = True
+    if versatz:
+        last["versatz"] = versatz
     if vorn:
         last["vorn"] = True  # Hantelscheibe vor dem Körper zeichnen (Seitenansicht)
     A[id] = dict(ansicht=ansicht, bilder=bilder, szene=list(szene), last=last, dauer=dauer)
@@ -614,11 +616,14 @@ def frontkniebeuge(x):
     g = gelenke("seite", p)
     s0 = g["S0"]
     d_ = d(t + 90)
-    hand = (s0[0] + d_[0] * 7 + d(t)[0] * 0, s0[1] + d_[1] * 7 + d(t)[1] * 0)
-    return hal(fuss=(1, 55), t=t, s=L(180, 95, x), w=L(180, 214, x), arm=[(1, hand, -1), (2, (hand[0] - 0.5, hand[1]), -1)])
+    # Frontgriff: Stange liegt vorn auf den Schultern, Oberarme zeigen waagerecht nach vorn (Ellbogen hoch),
+    # die Hände halten die Stange locker neben dem Hals
+    # Der Unterarm zeigt nach hinten zur Halsmitte und wirkt von der Seite darum kürzer (Faktor 0,6)
+    o = t + 70
+    return hal(fuss=(1, 55), t=t, s=L(180, 95, x), w=L(180, 214, x), o=o, u=o + 185, h1=-40, ua1=0.6)
 
 
-arch("frontkniebeuge", "seite", frontkniebeuge, punkte=H2)
+arch("frontkniebeuge", "seite", frontkniebeuge, punkte=H1)
 
 
 def goblet(x):
@@ -653,11 +658,11 @@ def _presse_sitz(hu=(40, 76), t=-58):
 def beinpresse(x):
     hu = (40, 76)
     ziel = (L(56, 76, x), L(52, 34, x))
-    return hal(huefte=hu, t=-58, o=150, u=150, f=L(10, 52, x), bein=[(1, ziel, -1), (2, (ziel[0] - 1, ziel[1] + 1), -1)])
+    return hal(huefte=hu, t=-58, o=150, u=150, f=-49, bein=[(1, ziel, -1), (2, (ziel[0] - 1, ziel[1] + 1), -1)])
 
 
 arch("beinpresse", "seite", beinpresse, szene=_presse_sitz() + [("linie", (50, 66), (92, 18), 1.6)],
-     punkte=("A1",), art="PLATTE", winkel=40)
+     punkte=("A1",), art="PLATTE", winkel=41, versatz=3.2)
 
 
 def ausfallschritt(x):
@@ -732,20 +737,16 @@ def abduktor(x, rein=False):
     # Sitzend, von vorn: Oberschenkel zeigen zum Betrachter (verkürzt), Unterschenkel hängen zur Fußstütze.
     # Abduktoren: Knie drücken die Polster außen auseinander. Adduktoren: Knie drücken die Polster innen zusammen.
     a = L(8, 42, x) if not rein else L(42, 8, x)  # Spreizwinkel der Oberschenkel in der Waagerechten
-    fuss = (67.0, 99.0)  # Knöchel auf der festen Fußstütze
-    hu = (60 + 5.5, 72.0)
-    dx = 23 * math.sin(math.radians(a))  # sichtbarer Teil des Oberschenkels zur Seite
-    kx = hu[0] + dx
-    dy = fuss[1] - math.sqrt(max(L_US ** 2 - (fuss[0] - kx) ** 2, 1)) - hu[1]  # Knie so hoch, dass der Unterschenkel passt
+    # Knie und Fuß bleiben senkrecht übereinander: der ganze Unterschenkel schiebt mit dem Knie die Platte
+    dx, dy = 23 * math.sin(math.radians(a)), 4.0  # sichtbarer Teil des Oberschenkels
     os = math.hypot(dx, dy) / 23
     s1 = winkel_zu((0, 0), (dx, dy))
-    w = winkel_zu((kx, hu[1] + dy), fuss)
-    return hal("vorn", huefte=(60, 72), t=0, s1=s1, w1=w, o1=150, u1=176, os=os, f1=0)
+    return hal("vorn", huefte=(60, 72), t=0, s1=s1, w1=180, o1=150, u1=176, os=os, f1=0)
 
 
 _SITZ_V = [("kasten", (46, 40, 74, 76)), ("linie", (40, 76), (80, 76), 4.6, "dunkel"), ("linie", (60, 76), (60, 104), 2.2)]
-arch("abduktor", "vorn", abduktor, szene=_SITZ_V, punkte=("KA1", "KA2"), art="POLSTER")
-arch("adduktor", "vorn", lambda x: abduktor(x, True), szene=_SITZ_V, punkte=("KI1", "KI2"), art="POLSTER")
+arch("abduktor", "vorn", abduktor, szene=_SITZ_V, punkte=("KA1", "KA2"), art="PLATTE", winkel=90, versatz=0.6)
+arch("adduktor", "vorn", lambda x: abduktor(x, True), szene=_SITZ_V, punkte=("KI1", "KI2"), art="PLATTE", winkel=90)
 arch("fliegende", "vorn", fliegende, szene=_SITZ_V0, punkte=H2, anker=[(70, 22), (50, 22)], art="MASCHINE")
 
 
@@ -769,7 +770,7 @@ def wadensitzend(x):
     zeh = g0["T1"]
     f = L(90, 126, x)
     ank = (zeh[0] - d(f)[0] * 8, zeh[1] - d(f)[1] * 8)
-    return hal(huefte=(p0[0], p0[1]), t=4, o=170, u=110, f=f, bein=[(1, ank, -1), (2, (ank[0] - 0.5, ank[1]), -1)])
+    return hal(huefte=(p0[0], 73.0), t=4, o=170, u=110, f=f, bein=[(1, ank, -1), (2, (ank[0] - 0.5, ank[1]), -1)])
 
 
 arch("wadensitzend", "seite", wadensitzend, szene=[BANK(30, 52, 80)], punkte=("K1",), art="POLSTER")
@@ -917,13 +918,13 @@ arch("seilspringen", "vorn", seilspringen, dauer=0.8, punkte=H2, art="SEIL", ank
 def katana(x):
     # Katana Extension von hinten: Kabel kommt unten von der Gegenseite, Hand startet hinter der
     # Gegenschulter (Ellbogen hoch, Arm gebeugt) und streckt diagonal nach oben außen – wie ein Schwert ziehen
-    p = hal("hinten", fuss=(1, 66), s1=176, w1=178, o2=176, u2=178)
-    g = gelenke("hinten", p)
-    s1 = g["S1"]
-    start = (56, s1[1] + 1)
-    ende = (s1[0] + 21, s1[1] - 21)
-    hand = (L(start[0], ende[0], x), L(start[1], ende[1], x))
-    return hal("hinten", fuss=(1, 66), s1=176, w1=178, o2=176, u2=178, arm=[(1, hand, -1)])
+    # Oberarm bleibt waagerecht in Linie mit den Schultern, nur der Unterarm bewegt sich:
+    # vom Kopf weg nach unten entlang des Kabels (zur Gegenseite unten) und zurück
+    p = hal("hinten", fuss=(1, 66), s1=176, w1=178, o1=90, o2=176, u2=178)
+    e = gelenke("hinten", p)["E1"]
+    zum_kabel = winkel_zu(e, (10, 100)) % 360
+    u = L(318, zum_kabel, x)
+    return hal("hinten", fuss=(1, 66), s1=176, w1=178, o1=90, u1=u, o2=176, u2=178)
 
 
 arch("katana", "hinten", katana, punkte=H1, anker=(10, 100), art="KABEL")
@@ -934,7 +935,7 @@ def rotatoren(x):
     phi = L(-62, 72, x)  # Drehwinkel des Unterarms in der Waagerechten (0 = nach vorn)
     dx, dy = 14 * math.sin(math.radians(phi)), 2.5
     u = winkel_zu((0, 0), (dx, dy))
-    return hal("vorn", fuss=(1, 66), s1=176, w1=178, o1=176, u1=u, h1=0, ua1=math.hypot(dx, dy) / 14)
+    return hal("vorn", fuss=(1, 66), s1=176, w1=178, o1=176, u1=u, h1=0, o2=-176, u2=-178, ua1=math.hypot(dx, dy) / 14)
 
 
 arch("rotatoren", "vorn", rotatoren, punkte=H1, anker=(10, 52), art="KABEL")

@@ -264,8 +264,8 @@ function lastSvg(last, geraet, g, ansicht, x) {
       vorn.push(linie(a, p, 2.4, 'fg'), kreis(a, 2.2, 'fg-f'), kreis(p, 2.4, 'fg-f'));
     });
   } else if (art === 'PLATTE') {
-    const v = d((last.winkel || 0) + 90);
-    punkte.forEach((p) => vorn.push(linie(add(p, v, -7), add(p, v, 7), 3, 'fg')));
+    const v = d((last.winkel || 0) + 90), n = d(last.winkel || 0);
+    punkte.forEach((p0) => { const p = add(p0, n, last.versatz || 0); vorn.push(linie(add(p, v, -7), add(p, v, 7), 3, 'fg')); });
   }
   return [hinten, vorn];
 }

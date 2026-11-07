@@ -207,6 +207,7 @@ def last_svg(last, geraet, g, ansicht, x=0.0):
         w = last.get("winkel", 0)
         for p in punkte:
             v = d(w + 90)
+            p = add(p, d(w), last.get("versatz", 0))
             vorn.append(L(add(p, v, -7), add(p, v, 7), 3.0, GERAET))
     return hinten, vorn
 

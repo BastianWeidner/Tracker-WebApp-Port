@@ -33,7 +33,7 @@ def daten():
             for k in ('anker', 'anker_b'):
                 if k in last:
                     l[k] = [list(p) for p in last[k]]
-            for k in ('art', 'winkel', 'stange', 'vorn'):
+            for k in ('art', 'winkel', 'stange', 'vorn', 'versatz'):
                 if k in last:
                     l[k] = last[k]
             m['last'] = l
