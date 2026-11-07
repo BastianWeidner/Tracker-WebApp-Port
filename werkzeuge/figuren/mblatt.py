@@ -10,10 +10,11 @@ def frame(a, x):
     b = a['bilder']; n = len(b) - 1
     i = min(int(x * n), n - 1); f = x * n - i
     return lerp_haltung(b[i], b[i + 1], f)
+XS = [i/8 for i in range(9)] if '--fein' in args else (0, .25, .5, .75, 1)
 rows = []
 for id in ids:
     a = haltungen.A[id]
-    cells = [bild(frame(a, x), ['X'], [], szene=a['szene'], last=a['last'], geraet=GER.get(id), ansicht=a['ansicht'], fx=x) for x in (0, .25, .5, .75, 1)]
+    cells = [bild(frame(a, x), ['X'], [], szene=a['szene'], last=a['last'], geraet=GER.get(id), ansicht=a['ansicht'], fx=x) for x in XS]
     rows.append(f'<div style="display:flex;align-items:center;border-bottom:1px solid #ccc"><b style="width:90px;font:12px sans-serif">{id}<br>{a["ansicht"]}</b>{"".join(cells)}</div>')
 pro = int(next((a[2:] for a in args if a.startswith('--') and a[2:].isdigit()), 8))
 for n in range(0, len(rows), pro):

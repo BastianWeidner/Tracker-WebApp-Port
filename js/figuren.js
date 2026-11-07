@@ -227,7 +227,7 @@ function lastSvg(last, geraet, g, ansicht, x) {
     if (ansicht === 'seite') {
       const m = [punkte.reduce((s, p) => s + p[0], 0) / punkte.length, punkte.reduce((s, p) => s + p[1], 0) / punkte.length];
       if (art === 'SMITH') hinten.push(linie([m[0] + 1.5, -4], [m[0] + 1.5, 104], 1.6, 'fgh', 'butt'));
-      hinten.push(kreis(m, art === 'EZ' ? 6.4 : 8.2, 'fg-f'));
+      (last.vorn ? vorn : hinten).push(kreis(m, art === 'EZ' ? 6.4 : 8.2, 'fg-f'));
       vorn.push(kreis(m, 1.6, 'fg-f'));
     } else {
       const [a, b] = [punkte[0], punkte[punkte.length - 1]];
@@ -322,6 +322,9 @@ export function rahmen(muster) {
 /** Fortschritt hin und her, weich an den Enden. */
 export const pendel = (sek, dauer) => (1 - Math.cos((2 * Math.PI * sek) / (2 * dauer))) / 2;
 
+/** Fortschritt zur Zeit: hin und her, bei zyklischen Mustern (Radfahren, Schwimmen) immer vorwärts im Kreis. */
+export const fortschritt = (muster, sek) => (muster.zyklisch ? ((sek / (2 * muster.dauer)) % 1 + 1) % 1 : pendel(sek, muster.dauer));
+
 /** Übungsbild. animiert: Bewegung läuft (nur wenn sichtbar und ohne „Bewegung reduzieren“). */
 export function FigurBild({ uebung, animiert = false, klein = false }) {
   const ref = useRef();
@@ -335,7 +338,7 @@ export function FigurBild({ uebung, animiert = false, klein = false }) {
     let id = 0, sichtbar = true;
     const t0 = performance.now();
     const schritt = (t) => {
-      if (sichtbar) el.innerHTML = figurSvg(info.muster, info.geraet, prim, sek, pendel((t - t0) / 1000, info.muster.dauer));
+      if (sichtbar) el.innerHTML = figurSvg(info.muster, info.geraet, prim, sek, fortschritt(info.muster, (t - t0) / 1000));
       id = requestAnimationFrame(schritt);
     };
     const beob = 'IntersectionObserver' in window ? new IntersectionObserver(([e]) => { sichtbar = e.isIntersecting; }) : null;

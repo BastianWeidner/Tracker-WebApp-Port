@@ -26,12 +26,14 @@ def daten():
     for id, a in haltungen.A.items():
         last = dict(a['last'])
         m = {'id': id, 'ansicht': a['ansicht'], 'dauer': a['dauer'], 'bilder': a['bilder'], 'szene': [szene_json(e) for e in a['szene']]}
+        if a.get('zyklisch'):
+            m['zyklisch'] = True
         if last.get('punkte'):
             l = {'punkte': last['punkte']}
             for k in ('anker', 'anker_b'):
                 if k in last:
                     l[k] = [list(p) for p in last[k]]
-            for k in ('art', 'winkel', 'stange'):
+            for k in ('art', 'winkel', 'stange', 'vorn'):
                 if k in last:
                     l[k] = last[k]
             m['last'] = l

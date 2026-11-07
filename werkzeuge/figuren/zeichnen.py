@@ -160,7 +160,7 @@ def last_svg(last, geraet, g, ansicht, x=0.0):
             m = (sum(p[0] for p in punkte) / len(punkte), sum(p[1] for p in punkte) / len(punkte))
             if art == "SMITH":
                 hinten.append(L((m[0] + 1.5, 8), (m[0] + 1.5, 104), 1.6, GERAET_HELL, "butt"))
-            hinten.append(C(m, 8.2 if art != "EZ" else 6.4, GERAET, None))
+            (vorn if last.get("vorn") else hinten).append(C(m, 8.2 if art != "EZ" else 6.4, GERAET, None))
             vorn.append(C(m, 1.6, GERAET))
         else:
             a, b = punkte[0], punkte[-1]
