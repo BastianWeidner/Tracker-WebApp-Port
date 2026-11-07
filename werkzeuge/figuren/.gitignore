@@ -1,0 +1,5 @@
+figuren.json
+referenz.json
+*.html
+*.png
+__pycache__/

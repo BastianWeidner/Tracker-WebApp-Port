@@ -4,22 +4,22 @@
 
 // ---------- Modell ----------
 
-/** Muskelgruppen. [vorne]: auf der Vorderansicht. [erholungStunden]: bis eine harte Einheit abgeklungen ist. */
+/** Muskelgruppen. [vorne]: auf der Vorderansicht. [erholungStunden]: bis eine harte Einheit abgeklungen ist. [fach]: Fachbegriff. */
 export const Muskel = {
-  BRUST: { titel: 'Brust', vorne: true, erholungStunden: 60 },
-  SCHULTERN: { titel: 'Schultern', vorne: true, erholungStunden: 48 },
-  BIZEPS: { titel: 'Bizeps', vorne: true, erholungStunden: 40 },
-  TRIZEPS: { titel: 'Trizeps', vorne: false, erholungStunden: 40 },
-  UNTERARME: { titel: 'Unterarme', vorne: true, erholungStunden: 36 },
-  BAUCH: { titel: 'Bauch', vorne: true, erholungStunden: 36 },
-  QUADRIZEPS: { titel: 'Oberschenkel vorne', vorne: true, erholungStunden: 72 },
-  ADDUKTOREN: { titel: 'Adduktoren', vorne: true, erholungStunden: 48 },
-  LAT: { titel: 'Latissimus', vorne: false, erholungStunden: 60 },
-  TRAPEZ: { titel: 'Nacken / oberer Rücken', vorne: false, erholungStunden: 48 },
-  UNTERER_RUECKEN: { titel: 'Unterer Rücken', vorne: false, erholungStunden: 72 },
-  GESAESS: { titel: 'Gesäß', vorne: false, erholungStunden: 72 },
-  BEINBEUGER: { titel: 'Beinbeuger', vorne: false, erholungStunden: 72 },
-  WADEN: { titel: 'Waden', vorne: false, erholungStunden: 36 },
+  BRUST: { titel: 'Brust', vorne: true, erholungStunden: 60, fach: 'M. pectoralis major' },
+  SCHULTERN: { titel: 'Schultern', vorne: true, erholungStunden: 48, fach: 'M. deltoideus' },
+  BIZEPS: { titel: 'Bizeps', vorne: true, erholungStunden: 40, fach: 'M. biceps brachii, M. brachialis' },
+  TRIZEPS: { titel: 'Trizeps', vorne: false, erholungStunden: 40, fach: 'M. triceps brachii' },
+  UNTERARME: { titel: 'Unterarme', vorne: true, erholungStunden: 36, fach: 'Unterarmbeuger und -strecker, M. brachioradialis' },
+  BAUCH: { titel: 'Bauch', vorne: true, erholungStunden: 36, fach: 'M. rectus abdominis, Mm. obliqui' },
+  QUADRIZEPS: { titel: 'Oberschenkel vorne', vorne: true, erholungStunden: 72, fach: 'M. quadriceps femoris' },
+  ADDUKTOREN: { titel: 'Adduktoren', vorne: true, erholungStunden: 48, fach: 'Mm. adductores' },
+  LAT: { titel: 'Latissimus', vorne: false, erholungStunden: 60, fach: 'M. latissimus dorsi' },
+  TRAPEZ: { titel: 'Nacken / oberer Rücken', vorne: false, erholungStunden: 48, fach: 'M. trapezius, Mm. rhomboidei' },
+  UNTERER_RUECKEN: { titel: 'Unterer Rücken', vorne: false, erholungStunden: 72, fach: 'M. erector spinae' },
+  GESAESS: { titel: 'Gesäß', vorne: false, erholungStunden: 72, fach: 'M. gluteus maximus und medius' },
+  BEINBEUGER: { titel: 'Beinbeuger', vorne: false, erholungStunden: 72, fach: 'Ischiocrurale Muskulatur (M. biceps femoris, M. semitendinosus, M. semimembranosus)' },
+  WADEN: { titel: 'Waden', vorne: false, erholungStunden: 36, fach: 'M. gastrocnemius, M. soleus' },
 };
 export const MUSKELN = Object.keys(Muskel);
 
