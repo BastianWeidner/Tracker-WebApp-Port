@@ -916,10 +916,10 @@ arch("seilspringen", "vorn", seilspringen, dauer=0.8, punkte=H2, art="SEIL", ank
 
 # ================= Ergänzungen für Import-Übungen =================
 def katana(x):
-    # Katana Extension von hinten: Oberarm bleibt schräg nach oben außen (Ellbogen hoch). Start mit der Hand am Kopf
-    # (Unterarm über den Oberarm nach hinten gefaltet, „Katana am Rücken greifen“), dann streckt der Arm ganz aus.
+    # Katana Extension von hinten: Oberarm bleibt immer waagerecht in Linie mit den Schultern. Start mit der Hand am Kopf
+    # (Unterarm über den Oberarm nach hinten gefaltet, „Katana vom Rücken ziehen“), dann streckt der Arm ganz zur Seite aus.
     # Das Kabel kommt von der Gegenseite aus etwa 1 m Höhe.
-    return hal("hinten", fuss=(1, 66), s1=176, w1=178, o1=45, u1=L(-88, 45, x), o2=176, u2=178)
+    return hal("hinten", fuss=(1, 66), s1=176, w1=178, o1=90, u1=L(-84, 90, x), o2=176, u2=178)
 
 
 arch("katana", "hinten", katana, punkte=H1, anker=(10, 50), art="KABEL")
