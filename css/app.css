@@ -233,7 +233,7 @@ button { font: inherit; color: inherit; }
 .balken-bahn { height: 5px; border-radius: 3px; background: var(--primary-container); overflow: hidden; }
 .balken.gross .balken-bahn { height: 9px; border-radius: 5px; }
 .balken-fuell { height: 100%; background: var(--primary); border-radius: inherit; }
-.balken.ueber .balken-zeile span:last-child { color: var(--error); }
+.balken.ueber .balken-zeile > span:last-child { color: var(--error); }
 .balken.ueber .balken-fuell { background: var(--error); }
 
 /* Zeilen und Listen */
@@ -412,3 +412,10 @@ div.zeile-uebung { cursor: default; }
 .figur-legende .punkt { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
 .figur-legende .punkt.p { background: var(--primary); }
 .figur-legende .punkt.s { background: color-mix(in srgb, var(--primary) 45%, var(--background)); }
+.muskel-angaben { display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px; }
+.muskel-gruppe strong { font-family: 'Nunito', sans-serif; font-size: 14px; display: flex; align-items: center; }
+.muskel-gruppe .punkt, .figur-legende .punkt { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+.punkt.p { background: var(--primary); }
+.punkt.s { background: color-mix(in srgb, var(--primary) 45%, var(--background)); }
+.muskel-eintrag { display: flex; flex-direction: column; padding-left: 16px; }
+.balken-zeile .fach { display: block; }

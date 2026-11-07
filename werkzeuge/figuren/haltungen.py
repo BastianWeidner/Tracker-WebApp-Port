@@ -220,7 +220,7 @@ arch("rumaenisch", "seite", rumaenisch, punkte=H2)
 
 def klimmzug(id, ansicht, breite):
     def fn(x):
-        return hal(ansicht, huefte=(60, L(57, 39, x)), s1=172, w1=190, f1=0,
+        return hal(ansicht, huefte=(60, L(59, 39, x)), s1=172, w1=190, f1=0,
                    arm=[(1, (60 + breite, 2), 1), (2, (60 - breite, 2), -1)])
     arch(id, ansicht, fn, szene=[("linie", (20, 1), (100, 1), 2.0, "dunkel")], punkte=("K1", "K2"), anker=(60, 96))
 
@@ -229,18 +229,32 @@ klimmzug("klimmzug", "hinten", 20)
 klimmzug("chinup", "vorn", 10)
 
 
-def latzug(id, breite):
+def latzug(id, breite, ende=-4):
     def fn(x):
         hy = 56
         g = gelenke("hinten", hal("hinten", huefte=(60, hy)))
-        y = L(12, g["S0"][1] + 2, x)
+        sy = g["S1"][1]
+        # Start: Arme fast gestreckt über dem Kopf; Ende: Stange vor dem Kinn, Ellbogen unten seitlich
+        y = L(sy - 30.5, sy + ende, x)
         return hal("hinten", huefte=(60, hy), s1=172, w1=180,
                    arm=[(1, (60 + breite, y), 1), (2, (60 - breite, y), -1)])
-    arch(id, "hinten", fn, punkte=H2, anker=(60, -4), stange=True)
+    arch(id, "hinten", fn, punkte=H2, anker=(60, -6), stange=True)
 
 
 latzug("latzug", 21)
-latzug("latzugeng", 6)
+
+
+def latzugeng(x):
+    # Enger Griff (V-Griff), von der Seite: sitzend, Hände von oben bis vor die Brust, Ellbogen nach unten hinten
+    hu = (46, 74)
+    t = L(-4, -14, x)
+    g = gelenke("seite", hal(huefte=hu, t=t))
+    s0 = g["S0"]
+    hand = (L(s0[0] + 5, s0[0] + 9, x), L(s0[1] - 31, s0[1] + 4, x))
+    return hal(huefte=hu, t=t, s=88, w=178, f=95, arm=[(1, hand, -1), (2, (hand[0] - 0.5, hand[1]), -1)])
+
+
+arch("latzugeng", "seite", latzugeng, szene=[BANK(36, 58, 78), ("linie", (64, 66), (70, 72), 4, "dunkel")], punkte=H2, anker=(52, -6), stange=True)
 
 
 def rudern(id, t0, art=None):
