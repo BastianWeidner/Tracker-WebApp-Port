@@ -35,6 +35,9 @@ enthält beide Bereiche. Sicherungen der Android-App (Food & Boost bzw. `krafttr
   Gerät) oder eigene. Je Satz Gewicht und Wiederholungen (Körpergewicht ± Zusatz, Sekunden, Strecke/Zeit),
   Satzart (Aufwärmen, Drop, bis Versagen), Abhaken mit Pausen-Timer und Ton, „Letztes Mal“ als Vorschlag,
   neue Bestwerte nach dem Training. Der Bildschirm bleibt während des Trainings an.
+- **Übungsbilder:** Jede Übung hat eine selbst gezeichnete Figur mit ihrem Gerät (Hantel, Kabelzug, Maschine,
+  Bank …). Die Hauptmuskeln sind kräftig markiert, mitarbeitende heller. In der Übungsansicht läuft die Bewegung als
+  Animation (aus bei „Bewegung reduzieren“), in Listen und im Training steht ein kleines Bild.
 - **Verlauf:** Trainings je Woche, alle Übungen. Je Übung ein Diagramm (geschätztes 1RM nach Epley, schwerstes
   Gewicht, Volumen, Wiederholungen; 3 Monate, 1 Jahr, alles), Bestwerte, Kraftniveau bei Grundübungen.
 - **Muskeln:** Körperbild vorn und hinten nach Belastung (harte Sätze in 7/14/30 Tagen gegen 10–20 je Woche),
@@ -73,7 +76,11 @@ Im Repo liegt nur die App, keine persönlichen Daten.
 Reines HTML/JavaScript ohne Build-Schritt (Preact + htm aus `vendor/`). Nach jeder Änderung
 `python3 werkzeuge/sw-bauen.py` ausführen: Das schreibt `sw.js` mit neuer Version, sonst sehen installierte
 Apps die Änderung nicht. Lokal testen: `python3 -m http.server` im Ordner, dann `http://localhost:8000`.
-Logik-Tests: `node test/logik.test.mjs` und `node test/training.test.mjs`.
+Logik-Tests: `node test/logik.test.mjs`, `node test/training.test.mjs` und `node test/figuren.test.mjs`.
+
+Übungsbilder: Die Haltungen entstehen in `werkzeuge/figuren/haltungen.py` (Python, gleiche Rechnung wie
+`js/figuren.js` und die Android-App). Nach Änderungen `python3 export.py` in dem Ordner ausführen und
+`figuren.json` als `js/figuren-daten.js` übernehmen (siehe `werkzeuge/figuren/README.md`).
 
 | Ordner | Inhalt |
 |---|---|
@@ -81,6 +88,7 @@ Logik-Tests: `node test/logik.test.mjs` und `node test/training.test.mjs`.
 | `js/profil.js` | Gemeinsames Körperprofil |
 | `js/logik.js` | Rechenlogik Food & Boost (aus der Android-App übertragen), Wissen zu Höchstmengen, Vorgaben, Vorlagen |
 | `js/training-logik.js`, `js/training.js` | Training: Übungskatalog, Rechnung, Import; Oberfläche |
+| `js/figuren.js`, `js/figuren-daten.js` | Übungsbilder: Figur, Muskeln, Geräte, Animation; Haltungen (erzeugt) |
 | `js/sicherung.js` | Gemeinsame Sicherungsdatei |
 | `js/app.js`, `js/teile.js` | Oberfläche Food & Boost, gemeinsame Bausteine |
 | `js/scan.js` | Kamera, Barcode, Texterkennung |

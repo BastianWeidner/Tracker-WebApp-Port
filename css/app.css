@@ -385,3 +385,30 @@ div.zeile-uebung { cursor: default; }
 .profil-knopf { align-self: flex-start; }
 .profil-zeile { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 18px; border: 0; border-radius: 22px; background: var(--surface-container-high); color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .profil-symbol { font-size: 26px; }
+
+/* Übungsbilder (js/figuren.js): Figur mit Gerät, Muskeln in Bereichsfarbe */
+.figur { display: block; width: 100%; max-width: 320px; height: auto; margin: 0 auto; aspect-ratio: 120 / 114; }
+.figur-klein { width: 60px; height: 60px; flex: none; margin: 0; aspect-ratio: 1; background: var(--surface-container-low); border-radius: 12px; }
+.figur .fh { stroke: color-mix(in srgb, var(--on-surface) 16%, var(--background)); fill: none; }
+.figur .fh-fern { stroke: color-mix(in srgb, var(--on-surface) 28%, var(--background)); }
+.figur .fh-r, .figur .fh-f { fill: color-mix(in srgb, var(--on-surface) 16%, var(--background)); }
+.figur .fh-r { stroke-width: 2.2; stroke-linejoin: round; }
+.figur .fh-f { stroke: none; }
+.figur .fm { fill: color-mix(in srgb, var(--on-surface) 22%, var(--background)); }
+.figur .fm-fern { fill: color-mix(in srgb, var(--on-surface) 33%, var(--background)); }
+.figur .fm-p { fill: var(--primary); }
+.figur .fm-s { fill: color-mix(in srgb, var(--primary) 45%, var(--background)); }
+.figur .fg { stroke: color-mix(in srgb, var(--on-surface) 72%, var(--background)); fill: none; }
+.figur .fg-f { fill: color-mix(in srgb, var(--on-surface) 72%, var(--background)); }
+.figur .fgh { stroke: color-mix(in srgb, var(--on-surface) 38%, var(--background)); fill: none; }
+.figur .fgh-f { fill: color-mix(in srgb, var(--on-surface) 38%, var(--background)); }
+.figur .fband { stroke: var(--tertiary); fill: none; }
+.figur .fboden { stroke: color-mix(in srgb, var(--on-surface) 30%, var(--background)); }
+.zeile-uebung.mit-bild { display: flex; flex-direction: row; align-items: center; gap: 10px; }
+.zeile-uebung.mit-bild .zeile-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.block-bild { background: none; border: 0; padding: 0 8px 0 0; cursor: pointer; }
+.uebung-bild { background: var(--surface-container-low); border-radius: 16px; padding: 8px 8px 6px; margin: 4px 0 8px; }
+.figur-legende { display: flex; gap: 16px; justify-content: center; color: var(--on-surface-variant); }
+.figur-legende .punkt { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+.figur-legende .punkt.p { background: var(--primary); }
+.figur-legende .punkt.s { background: color-mix(in srgb, var(--primary) 45%, var(--background)); }
