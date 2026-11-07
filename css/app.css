@@ -419,3 +419,18 @@ div.zeile-uebung { cursor: default; }
 .punkt.s { background: color-mix(in srgb, var(--primary) 45%, var(--background)); }
 .muskel-eintrag { display: flex; flex-direction: column; padding-left: 16px; }
 .balken-zeile .fach { display: block; }
+/* Übungsbilder im dunklen Design: Figur und Geräte kräftiger, damit sie sich vom Grund abheben */
+@media (prefers-color-scheme: dark) {
+  .figur .fh { stroke: color-mix(in srgb, var(--on-surface) 40%, var(--background)); }
+  .figur .fh-fern { stroke: color-mix(in srgb, var(--on-surface) 27%, var(--background)); }
+  .figur .fh-r, .figur .fh-f { fill: color-mix(in srgb, var(--on-surface) 40%, var(--background)); }
+  .figur .fm { fill: color-mix(in srgb, var(--on-surface) 50%, var(--background)); }
+  .figur .fm-fern { fill: color-mix(in srgb, var(--on-surface) 36%, var(--background)); }
+  .figur .fm-s { fill: color-mix(in srgb, var(--primary) 62%, var(--background)); }
+  .figur-legende .punkt.s, .punkt.s { background: color-mix(in srgb, var(--primary) 62%, var(--background)); }
+  .figur .fg { stroke: color-mix(in srgb, var(--on-surface) 82%, var(--background)); }
+  .figur .fg-f { fill: color-mix(in srgb, var(--on-surface) 82%, var(--background)); }
+  .figur .fgh { stroke: color-mix(in srgb, var(--on-surface) 55%, var(--background)); }
+  .figur .fgh-f { fill: color-mix(in srgb, var(--on-surface) 55%, var(--background)); }
+  .figur .fboden { stroke: color-mix(in srgb, var(--on-surface) 40%, var(--background)); }
+}

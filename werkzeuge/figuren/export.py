@@ -36,12 +36,12 @@ def daten():
                     l[k] = last[k]
             m['last'] = l
         muster[id] = m
-    return r({'muster': muster, 'zuordnung': haltungen.ZUORDNUNG})
+    return r({'muster': muster, 'zuordnung': haltungen.ZUORDNUNG, 'stichworte': [list(x) for x in haltungen.STICHWORTE]})
 
 def referenz():
     # Gelenke und Muskelflächen einiger Haltungen, damit JS und Kotlin gegen Python prüfen können
     out = []
-    for id in ('kniebeuge', 'latzug', 'seitheben', 'bankdruecken'):
+    for id in ('kniebeuge', 'latzug', 'seitheben', 'bankdruecken', 'abduktor', 'rotatoren', 'fliegende_bank'):
         a = haltungen.A[id]
         h = a['bilder'][2]
         g = modell.gelenke(a['ansicht'], h)

@@ -1,6 +1,6 @@
 """Figurenmodell: Vorwärtskinematik und Muskelflächen. Muss mit Kotlin (Figuren.kt) und JS (figuren.js) übereinstimmen.
 
-Haltung = 17 Zahlen: hx, hy, t, k, z, o1, u1, h1, o2, u2, h2, s1, w1, f1, s2, w2, f2
+Haltung = 17 Zahlen: hx, hy, t, k, z, o1, u1, h1, o2, u2, h2, s1, w1, f1, s2, w2, f2 (optional 18.: Oberschenkelfaktor, 19.: Unterarmfaktor Arm 1, 20.: Faktor beider Arme)
 Winkel in Grad, absolut: 0 = nach oben, 90 = nach vorn (rechts), 180 = nach unten. h = Hand relativ zum Unterarm.
 Ansichten: seite (blickt nach rechts), vorn, hinten.
 """
@@ -22,8 +22,14 @@ def add(p, v, s=1.0):
     return (p[0] + v[0] * s, p[1] + v[1] * s)
 
 
-def gelenke(ansicht, h):
-    """Gelenkpunkte als dict. Arm/Bein 1 = vorn bzw. rechts im Bild."""
+def gelenke(ansicht, h, os=None):
+    """Gelenkpunkte als dict. Arm/Bein 1 = vorn bzw. rechts im Bild.
+    Optionaler 18. Wert der Haltung: Längenfaktor Oberschenkel (verkürzt, wenn er auf den Betrachter zeigt,
+    z. B. sitzend von vorn). os überschreibt ihn (nur beim Entwerfen)."""
+    if os is None:
+        os = h[17] if len(h) > 17 else 1.0
+    ua1 = h[18] if len(h) > 18 else 1.0  # 19. Wert: Längenfaktor Unterarm 1 (Drehung zum Betrachter)
+    af = h[19] if len(h) > 19 else 1.0  # 20. Wert: Längenfaktor beider Arme (Arme zeigen zur Seite, z. B. Fliegende von der Seite)
     g = {}
     H = (h[0], h[1])
     t, k, z = h[2], h[3], h[4]
@@ -57,10 +63,10 @@ def gelenke(ansicht, h):
     for i, (oi, ui, hi, si, wi, fi) in enumerate([(5, 6, 7, 11, 12, 13), (8, 9, 10, 14, 15, 16)]):
         n = str(i + 1)
         S = sh[i]
-        E = add(S, d(h[oi]), L_OA)
-        W = add(E, d(h[ui]), L_UA)
+        E = add(S, d(h[oi]), L_OA * af)
+        W = add(E, d(h[ui]), L_UA * af * (ua1 if i == 0 else 1.0))
         HA = add(W, d(h[ui] + h[hi]), L_HAND)
-        K = add(hu[i], d(h[si]), L_OS)
+        K = add(hu[i], d(h[si]), L_OS * os)
         A = add(K, d(h[wi]), L_US)
         g["S" + n], g["E" + n], g["W" + n], g["HA" + n] = S, E, W, HA
         g["HU" + n], g["K" + n], g["A" + n] = hu[i], K, A
@@ -71,6 +77,10 @@ def gelenke(ansicht, h):
             # Fuß von vorn: kurzer Strich nach außen-unten
             g["T" + n] = add(A, d(h[wi] + (25 if i == 0 else -25)), 4.5)
             g["F" + n] = A
+            # Knie außen/innen (Polster der Abduktoren-/Adduktorenmaschine)
+            sg = 1 if i == 0 else -1
+            g["KA" + n] = add(K, p, 3.8 * sg)
+            g["KI" + n] = add(K, p, -3.8 * sg)
     return g
 
 
@@ -99,6 +109,9 @@ MUSKELN = {
         ("BRUST", "rumpf", 0.60, 0.90, -4.6, 3.7),
         ("TRAPEZ", "rumpf", 0.93, 1.07, 5.4, 1.6),
         ("TRAPEZ", "rumpf", 0.93, 1.07, -5.4, 1.6),
+        # kleiner/mittlerer Gesäßmuskel seitlich an der Hüfte (von vorn sichtbar)
+        ("GESAESS", "rumpf", -0.04, 0.14, 7.0, 1.7),
+        ("GESAESS", "rumpf", -0.04, 0.14, -7.0, 1.7),
         ("QUADRIZEPS", "os", 0.12, 0.92, 0.5, 3.1),
         ("ADDUKTOREN", "os", 0.06, 0.52, -2.8, 1.5),
         ("WADEN", "us", 0.08, 0.50, -1.6, 1.4),

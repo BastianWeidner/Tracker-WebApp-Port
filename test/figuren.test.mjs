@@ -34,6 +34,17 @@ const eigen = musterFuer(uebung({ id: 'e:1', name: 'Incline Dumbbell Curl', prim
 assert.equal(eigen.muster, musterFuer({ id: 'schraegcurl-kh' }).muster);
 const fremd = musterFuer(uebung({ id: 'e:2', name: 'Irgendwas', primaer: ['LAT'] }));
 assert.equal(fremd.muster.ansicht, 'hinten');
+// Namen ohne Katalogtreffer (aus einem Stronger-Export) über Stichworte
+const st = (name) => { const m = musterFuer(uebung({ id: 'e:x', name, primaer: [] })); return `${m.muster.id}/${m.geraet}`; };
+assert.equal(st('Katana Extension'), 'katana/KABEL');
+assert.equal(st('Iso-lateral Pulldown'), 'latzug/MASCHINE');
+assert.equal(st('Cable Pull down (Lateral)'), 'latzug/KABEL');
+assert.equal(st('Lateral rise'), 'seitheben/KH');
+assert.equal(st('Near grip Shoulder Press machi'), 'schulterdruecken/MASCHINE');
+assert.equal(st('Decline Benchpress machine'), 'brustpresse/MASCHINE');
+assert.equal(st('unterer R - Bock Platte heben'), 'hyperext/null');
+assert.equal(st('Rotatoren Kabel'), 'rotatoren/KABEL');
+assert.equal(st('Swimming in 100m'), 'schwimmen/null');
 console.log('✓ eigene und importierte Übungen finden ihr Bild über den Namen');
 
 assert.equal(pendel(0, 2), 0); nah(pendel(2, 2), 1, 'pendel'); nah(pendel(4, 2), 0, 'pendel zurück');

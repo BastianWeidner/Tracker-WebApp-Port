@@ -40,7 +40,7 @@ def ik(basis, ziel, l1, l2, beuge, ref1, ref2):
     return nahe(w1, ref1), nahe(w2, ref2)
 
 
-def hal(ansicht="seite", fuss=None, huefte=None, punkt=None, sym=None, arm=(), bein=(), **kw):
+def hal(ansicht="seite", fuss=None, huefte=None, punkt=None, sym=None, arm=(), bein=(), os=1.0, ua1=1.0, af=1.0, **kw):
     """Haltung bauen.
     Kurzschlüssel o,u,h,s,w,f setzen beide Seiten; in vorn/hinten wird Seite 2 gespiegelt (sym).
     fuss=(nr, x): Knöchel nr steht bei x auf dem Boden. huefte=(x, y). punkt=(gelenk, (x, y)) verschiebt die Figur.
@@ -63,27 +63,33 @@ def hal(ansicht="seite", fuss=None, huefte=None, punkt=None, sym=None, arm=(), b
     if huefte:
         h["hx"], h["hy"] = huefte
     x = [float(h[n]) for n in P]
+    if os != 1.0 or ua1 != 1.0 or af != 1.0:
+        x.append(float(os))
+    if ua1 != 1.0 or af != 1.0:
+        x.append(float(ua1))
+    if af != 1.0:
+        x.append(float(af))
     if fuss:
         nr, fx = fuss
-        A = gelenke(ansicht, x)["A" + str(nr)]
+        A = gelenke(ansicht, x, os)["A" + str(nr)]
         x[0] += fx - A[0]
         x[1] += (BODEN if ansicht == "seite" else BODEN_V) - A[1]
     if punkt:
         name, (px, py) = punkt
-        q = gelenke(ansicht, x)[name]
+        q = gelenke(ansicht, x, os)[name]
         x[0] += px - q[0]
         x[1] += py - q[1]
     for nr, ziel, beuge in arm:
-        g = gelenke(ansicht, x)
+        g = gelenke(ansicht, x, os)
         oi, ui, hi = IX["o%d" % nr], IX["u%d" % nr], IX["h%d" % nr]
         # Ziel ist die Handmitte: Handgelenk liegt L_HAND davor in Unterarmrichtung; einfache Näherung über die Länge
         a, b = ik(g["S%d" % nr], ziel, L_OA, L_UA + L_HAND, beuge, x[oi], x[ui])
         x[oi], x[ui] = a, b
         x[hi] = 0.0
     for nr, ziel, beuge in bein:
-        g = gelenke(ansicht, x)
+        g = gelenke(ansicht, x, os)
         si, wi = IX["s%d" % nr], IX["w%d" % nr]
-        a, b = ik(g["HU%d" % nr], ziel, L_OS, L_US, beuge, x[si], x[wi])
+        a, b = ik(g["HU%d" % nr], ziel, L_OS * os, L_US, beuge, x[si], x[wi])
         x[si], x[wi] = a, b
     return [round(v, 2) for v in x]
 
@@ -121,7 +127,8 @@ def bank(id, neigung):
     def fn(x):
         g = gelenke("seite", hal(huefte=hu, t=t))
         s0 = g["S0"]
-        ziel = (s0[0] + L(3, 0, x) + neigung * 0.12, s0[1] - L(6, 31, x))
+        # unten: Stange auf der unteren Brust (Richtung Hüfte), oben: über dem Schultergelenk
+        ziel = (s0[0] + L(11, 2, x) + neigung * 0.12, s0[1] - L(7, 31, x))
         return hal(huefte=hu, t=t, s=105, w=165, f=95, arm=[(1, ziel, 1), (2, (ziel[0] + 1, ziel[1]), 1)])
     arch(id, "seite", fn, szene=szene, punkte=H2, anker=(98, 30))
 
@@ -143,10 +150,32 @@ arch("brustpresse", "seite", brustpresse, szene=[BANK(36, 56, 72), ("linie", (38
 
 
 def fliegende(x):
-    return hal("vorn", fuss=(1, 66), o1=L(96, 142, x), u1=L(104, 236, x), s1=176, w1=178)
+    p = hal("vorn", fuss=(1, 66), s1=176, w1=178)
+    g = gelenke("vorn", p)
+    y = g["S1"][1] + 7
+    hx = L(g["S1"][0] + 28, 64, x)
+    return hal("vorn", fuss=(1, 66), s1=176, w1=178, arm=[(1, (hx, y), 1), (2, (120 - hx, y), -1)])
 
 
-arch("fliegende", "vorn", fliegende, punkte=H2, anker=[(114, 34), (6, 34)])
+arch("fliegende", "vorn", fliegende, punkte=H2, anker=[(104, 18), (16, 18)])
+
+
+def fliegende_bank(id, neigung):
+    # Kurzhantel-Fliegende auf der Bank, von der Seite. Die Arme gehen seitlich weg, darum wirken sie verkürzt:
+    # unten neben der Bank kurz, über der Brust in voller Länge.
+    t = -90 + neigung
+    hu = (64, 66)
+    szene = [("bank", (round(64 - 34 * math.cos(math.radians(neigung)), 1), round(70 - 34 * math.sin(math.radians(neigung)), 1)), (72, 70))]
+    def fn(x):
+        phi = L(102, 4, x)  # Winkel des Arms zur Senkrechten über der Brust, seitlich gemessen
+        c = math.cos(math.radians(phi))
+        w = (0 if c >= 0 else 180) + neigung * 0.3
+        return hal(huefte=hu, t=t, s=105, w=165, f=95, o=w + 6, u=w - 6, af=max(abs(c), 0.22))
+    arch(id, "seite", fn, szene=szene, punkte=H2)
+
+
+fliegende_bank("fliegende_bank", 0)
+fliegende_bank("schraegfliegende", 32)
 
 
 def kabelcross(x):
@@ -170,7 +199,7 @@ arch("liegestuetz", "seite", liegestuetz)
 
 def dips(x):
     griff = (58, 46)
-    return hal(t=L(8, 22, x), s=166, w=250, f=160, punkt=("S0", (L(58.5, 61, x), L(16, 32, x))),
+    return hal(t=L(8, 24, x), s=166, w=250, f=160, punkt=("S0", (L(58.5, 62, x), L(16, 40, x))),
                arm=[(1, griff, -1), (2, (griff[0] - 1, griff[1]), -1)])
 
 
@@ -178,9 +207,10 @@ arch("dips", "seite", dips, szene=[("linie", (46, 46), (74, 46), 2.4, "dunkel"),
 
 
 def trizepsdips(x):
-    griff = (38, 66)
-    return hal(t=L(-4, -2, x), s=L(95, 100, x), w=L(150, 165, x), f=90, punkt=("S0", (L(40, 41, x), L(38, 50, x))),
-               arm=[(1, griff, -1), (2, (griff[0] - 1, griff[1]), -1)], bein=[(1, (84, BODEN), 1), (2, (85, BODEN), 1)])
+    # Hände hinter dem Körper auf der Bankkante, Hüfte sinkt vor der Bank ab, Ellbogen zeigen nach hinten
+    griff = (36, 66)
+    return hal(t=L(2, 6, x), f=90, punkt=("S0", (L(39, 42, x), L(37, 52, x))),
+               arm=[(1, griff, 1), (2, (griff[0] - 1, griff[1]), 1)], bein=[(1, (86, BODEN), 1), (2, (87, BODEN), 1)])
 
 
 arch("trizepsdips", "seite", trizepsdips, szene=[BANK(16, 38, 68)])
@@ -188,8 +218,7 @@ arch("trizepsdips", "seite", trizepsdips, szene=[BANK(16, 38, 68)])
 
 # ================= Rücken =================
 def kreuzheben(x):
-    return hal(fuss=(1, 55), t=L(60, 0, x), s=L(128, 180, x), w=L(205, 180, x),
-               arm=[(1, (L(66, 60, x), L(91, 63, x)), 1), (2, (L(66, 60, x) - 1, L(91, 63, x)), 1)])
+    return hal(fuss=(1, 55), t=L(58, 0, x), s=L(126, 180, x), w=L(208, 180, x), o=180, u=180, o2=181, u2=181)
 
 
 arch("kreuzheben", "seite", kreuzheben, punkte=H2)
@@ -211,8 +240,7 @@ arch("sumo", "vorn", sumo, punkte=H2)
 
 
 def rumaenisch(x):
-    return hal(fuss=(1, 55), t=L(0, 74, x), s=L(178, 162, x), w=L(180, 186, x),
-               arm=[(1, (L(60, 70, x), L(62, 86, x)), 1), (2, (L(60, 70, x) - 1, L(62, 86, x)), 1)])
+    return hal(fuss=(1, 55), t=L(0, 72, x), s=L(178, 158, x), w=L(180, 186, x), o=180, u=180, o2=181, u2=181)
 
 
 arch("rumaenisch", "seite", rumaenisch, punkte=H2)
@@ -220,7 +248,7 @@ arch("rumaenisch", "seite", rumaenisch, punkte=H2)
 
 def klimmzug(id, ansicht, breite):
     def fn(x):
-        return hal(ansicht, huefte=(60, L(59, 39, x)), s1=172, w1=190, f1=0,
+        return hal(ansicht, huefte=(60, L(57, 39, x)), s1=172, w1=190, f1=0,
                    arm=[(1, (60 + breite, 2), 1), (2, (60 - breite, 2), -1)])
     arch(id, ansicht, fn, szene=[("linie", (20, 1), (100, 1), 2.0, "dunkel")], punkte=("K1", "K2"), anker=(60, 96))
 
@@ -241,20 +269,22 @@ def latzug(id, breite, ende=-4):
     arch(id, "hinten", fn, punkte=H2, anker=(60, -6), stange=True)
 
 
-latzug("latzug", 21)
 
 
-def latzugeng(x):
-    # Enger Griff (V-Griff), von der Seite: sitzend, Hände von oben bis vor die Brust, Ellbogen nach unten hinten
-    hu = (46, 74)
-    t = L(-4, -14, x)
+def latzug_seite(x, ende=6):
+    # Von der Seite, sitzend, Oberschenkel unter der Knierolle: Hände von gestreckt über dem Kopf
+    # vor dem Gesicht vorbei bis zur oberen Brust, Ellbogen nach unten und leicht nach hinten
+    hu = (44, 74)
+    t = L(-2, -14, x)
     g = gelenke("seite", hal(huefte=hu, t=t))
     s0 = g["S0"]
-    hand = (L(s0[0] + 5, s0[0] + 9, x), L(s0[1] - 31, s0[1] + 4, x))
-    return hal(huefte=hu, t=t, s=88, w=178, f=95, arm=[(1, hand, -1), (2, (hand[0] - 0.5, hand[1]), -1)])
+    hand = (L(s0[0] + 5, s0[0] + 10, x), L(s0[1] - 31, s0[1] + ende, x))
+    return hal(huefte=hu, t=t, s=88, w=178, f=95, arm=[(1, hand, 1), (2, (hand[0] - 0.5, hand[1]), 1)])
 
 
-arch("latzugeng", "seite", latzugeng, szene=[BANK(36, 58, 78), ("linie", (64, 66), (70, 72), 4, "dunkel")], punkte=H2, anker=(52, -6), stange=True)
+_LATZUG_SZENE = [BANK(34, 56, 78), ("linie", (56, 104), (56, 64), 2.2), ("linie", (54, 66), (62, 66), 4, "dunkel")]
+arch("latzug", "seite", latzug_seite, szene=_LATZUG_SZENE, punkte=H2, anker=(56, -6), stange=True)
+arch("latzugeng", "seite", lambda x: latzug_seite(x, 9), szene=_LATZUG_SZENE, punkte=H2, anker=(56, -6), stange=True)
 
 
 def rudern(id, t0, art=None):
@@ -263,7 +293,7 @@ def rudern(id, t0, art=None):
         g = gelenke("seite", p)
         s0 = g["S0"]
         hand = (L(s0[0] + 2, g["H"][0] + 13, x), L(s0[1] + 29, g["H"][1] + 4, x))
-        return hal(fuss=(1, 52), t=t0, s=160, w=198, arm=[(1, hand, -1), (2, (hand[0] - 1, hand[1]), -1)])
+        return hal(fuss=(1, 52), t=t0, s=160, w=198, arm=[(1, hand, 1), (2, (hand[0] - 1, hand[1]), 1)])
     arch(id, "seite", fn, punkte=H2, art=art)
 
 
@@ -278,7 +308,7 @@ def einarm(x):
     s0 = g["S0"]
     hand = (L(s0[0], g["H"][0] + 14, x), L(s0[1] + 29, g["H"][1] - 1, x))
     return hal(huefte=(40, 57), t=86, s1=178, w1=178, s2=92, w2=-90, f2=180, o2=180, u2=180,
-               arm=[(1, hand, -1), (2, (s0[0] + 2, 67), 1)])
+               arm=[(1, hand, 1), (2, (s0[0] + 2, 67), 1)])
 
 
 arch("einarm", "seite", einarm, szene=[BANK(36, 80, 69)], punkte=H1)
@@ -291,7 +321,7 @@ def kabelrudern(id, liegen=False):
         g = gelenke("seite", hal(huefte=hu, t=t))
         s0 = g["S0"]
         hand = (L(s0[0] + 29, g["H"][0] + 10, x), L(s0[1] + 6, g["H"][1] - 8, x))
-        return hal(huefte=hu, t=t, s=96, w=104, f=10, arm=[(1, hand, -1), (2, (hand[0] - 1, hand[1]), -1)])
+        return hal(huefte=hu, t=t, s=96, w=104, f=10, arm=[(1, hand, 1), (2, (hand[0] - 1, hand[1]), 1)])
     arch(id, "seite", fn, szene=[BANK(30, 50, 84), ("linie", (86, 84), (90, 104), 3, "dunkel")], punkte=H2, anker=(108, 76))
 
 
@@ -304,7 +334,7 @@ def brustgestuetzt(x):
     g = gelenke("seite", p)
     s0 = g["S0"]
     hand = (L(s0[0] + 1, s0[0] - 9, x), L(s0[1] + 29, s0[1] + 6, x))
-    return hal(t=t, s=172, w=190, fuss=(1, 46), arm=[(1, hand, -1), (2, (hand[0] - 1, hand[1]), -1)])
+    return hal(t=t, s=172, w=190, fuss=(1, 46), arm=[(1, hand, 1), (2, (hand[0] - 1, hand[1]), 1)])
 
 
 arch("brustgestuetzt", "seite", brustgestuetzt, szene=[("bank", (50, 66), (74, 40))], punkte=H2, anker=(92, 50))
@@ -332,7 +362,7 @@ arch("pullover_kabel", "seite", pullover_kabel, punkte=H2, anker=(104, 8), stang
 
 
 def shrugs(x):
-    return hal("vorn", fuss=(1, 66), z=L(0, 4.5, x), o1=172, u1=176, s1=177, w1=180)
+    return hal("vorn", fuss=(1, 66), z=L(0, 6.5, x), o1=172, u1=176, s1=177, w1=180)
 
 
 arch("shrugs", "vorn", shrugs, punkte=H2, anker=(60, 104))
@@ -364,7 +394,7 @@ arch("goodmorning", "seite", goodmorning, punkte=("NACKEN",))
 
 # ================= Schultern =================
 def schulterdruecken(x):
-    hy = 56
+    hy = 55
     g = gelenke("vorn", hal("vorn", huefte=(60, hy)))
     s0 = g["S0"]
     y = L(s0[1] - 3, s0[1] - 31, x)
@@ -375,10 +405,10 @@ arch("schulterdruecken", "vorn", schulterdruecken, punkte=H2, anker=[(96, 60), (
 
 
 def arnold(x):
-    hy = 56
+    hy = 55
     g = gelenke("vorn", hal("vorn", huefte=(60, hy)))
     s0 = g["S0"]
-    y = L(s0[1] - 4, s0[1] - 31, x)
+    y = L(s0[1] + 1, s0[1] - 31, x)
     bx = L(6, 15, x)
     return hal("vorn", huefte=(60, hy), s1=178, w1=180, arm=[(1, (60 + bx, y), L(-1, 1, x) if x > 0.5 else -1), (2, (60 - bx, y), 1 if x <= 0.5 else -1)])
 
@@ -413,10 +443,13 @@ arch("frontheben", "seite", frontheben, punkte=H2, anker=(40, 102))
 
 
 def reversefly(x):
-    return hal("hinten", fuss=(1, 66), o1=L(172, 92, x), u1=L(176, 98, x), s1=176, w1=178)
+    # Von hinten: Arme leicht gebeugt, aus dem Hängen vor dem Körper bis auf Schulterhöhe zur Seite
+    # (vorgebeugt mit Kurzhanteln, am Kabel oder an der Reverse-Butterfly-Maschine)
+    o = L(162, 90, x)
+    return hal("hinten", fuss=(1, 66), s1=176, w1=178, o1=o, u1=o + 8)
 
 
-arch("reversefly", "hinten", reversefly, punkte=H2, anker=[(10, 34), (110, 34)])
+arch("reversefly", "hinten", reversefly, punkte=H2, anker=[(16, 20), (104, 20)])
 
 
 def aufrechtrudern(x):
@@ -487,7 +520,8 @@ def kickback(x):
     return hal(fuss=(1, 52), t=72, s1=168, w1=192, s2=196, w2=196, o1=262, u1=L(178, 262, x), o2=140, u2=150)
 
 
-arch("kickback", "seite", kickback, punkte=H1, anker=(94, 100))
+_kb = gelenke("seite", kickback(0))["HA2"]
+arch("kickback", "seite", kickback, szene=[BANK(round(_kb[0] - 12, 1), round(_kb[0] + 6, 1), round(_kb[1] + 2, 1))], punkte=H1, anker=(94, 100))
 
 
 def handgelenk(x):
@@ -553,19 +587,29 @@ def hackenschmidt(x):
 arch("hackenschmidt", "seite", hackenschmidt, punkte=("NACKEN",), art="POLSTER", szene=[("linie", (34, 104), (50, 10), 2.2), ("linie", (56, 103), (76, 103), 2.6, "dunkel")])
 
 
+def _presse_sitz(hu=(40, 76), t=-58):
+    dt = d(t)
+    hinten = (dt[1] * 6, -dt[0] * 6)  # zur Rückenseite
+    a = (hu[0] + hinten[0] - dt[0] * 3, hu[1] + hinten[1] - dt[1] * 3)
+    b = (hu[0] + hinten[0] + dt[0] * 33, hu[1] + hinten[1] + dt[1] * 33)
+    r = lambda p: (round(p[0], 1), round(p[1], 1))
+    return [("linie", r(a), r(b), 4.6, "dunkel"), ("linie", r(a), (a[0] + 12, a[1] - 2), 4.6, "dunkel"),
+            ("linie", (round(a[0] + 2, 1), round(a[1], 1)), (round(a[0] + 2, 1), 104), 2.2), ("linie", r(b), (round(b[0], 1), 104), 2.2)]
+
+
 def beinpresse(x):
     hu = (40, 76)
     ziel = (L(56, 76, x), L(52, 34, x))
     return hal(huefte=hu, t=-58, o=150, u=150, f=L(10, 52, x), bein=[(1, ziel, 1), (2, (ziel[0] - 1, ziel[1] + 1), 1)])
 
 
-arch("beinpresse", "seite", beinpresse, szene=[("linie", (22, 64), (48, 82), 4.6, "dunkel"), ("linie", (36, 82), (36, 104), 2.2), ("linie", (50, 66), (92, 18), 1.6)],
+arch("beinpresse", "seite", beinpresse, szene=_presse_sitz() + [("linie", (50, 66), (92, 18), 1.6)],
      punkte=("A1",), art="PLATTE", winkel=40)
 
 
 def ausfallschritt(x):
     hy = L(56.9, 68, x)
-    return hal(huefte=(56, hy), t=L(0, 4, x), f1=90, f2=L(120, 140, x), o=180, u=180,
+    return hal(huefte=(56, hy), t=L(0, 4, x), f1=90, f2=L(110, 128, x), o=180, u=180,
                bein=[(1, (70, BODEN), 1), (2, (38, BODEN - L(0, 3, x)), -1)])
 
 
@@ -631,13 +675,22 @@ def kickbackbein(x):
 arch("kickbackbein", "seite", kickbackbein, szene=[("linie", (78, 40), (78, 104), 2.6, "dunkel")], punkte=("A1",), anker=(102, 100))
 
 
-def abduktor(x, rein=False, ansicht="vorn"):
-    a = L(176, 150, x) if not rein else L(150, 176, x)
-    return hal(ansicht, huefte=(60, 55), s1=a, w1=a, o1=165, u1=172)
+def abduktor(x, rein=False):
+    # Sitzend, von vorn: Oberschenkel zeigen zum Betrachter (verkürzt), Unterschenkel hängen zur Fußstütze.
+    # Abduktoren: Knie drücken die Polster außen auseinander. Adduktoren: Knie drücken die Polster innen zusammen.
+    a = L(8, 42, x) if not rein else L(42, 8, x)  # Spreizwinkel der Oberschenkel in der Waagerechten
+    dx, dy = 23 * math.sin(math.radians(a)), 4.0  # sichtbarer Teil des Oberschenkels
+    os = math.hypot(dx, dy) / 23
+    s1 = winkel_zu((0, 0), (dx, dy))
+    p = hal("vorn", huefte=(60, 72), t=0, s1=s1, o1=150, u1=176, os=os, f1=0)
+    k = gelenke("vorn", p)["K1"]
+    w = winkel_zu(k, (67, 99))  # Füße bleiben auf der Fußstütze
+    return hal("vorn", huefte=(60, 72), t=0, s1=s1, w1=w, o1=150, u1=176, os=os, f1=0)
 
 
-arch("abduktor", "hinten", lambda x: abduktor(x, ansicht="hinten"), punkte=("K1", "K2"), art="POLSTER")
-arch("adduktor", "vorn", lambda x: abduktor(x, True), punkte=("K1", "K2"), art="POLSTER")
+_SITZ_V = [("kasten", (46, 40, 74, 76)), ("linie", (40, 76), (80, 76), 4.6, "dunkel"), ("linie", (60, 76), (60, 104), 2.2)]
+arch("abduktor", "vorn", abduktor, szene=_SITZ_V, punkte=("KA1", "KA2"), art="POLSTER")
+arch("adduktor", "vorn", lambda x: abduktor(x, True), szene=_SITZ_V, punkte=("KI1", "KI2"), art="POLSTER")
 
 
 def wadenstehend(x):
@@ -665,7 +718,7 @@ def wadenpresse(x):
     return hal(huefte=(40, 76), t=-58, o=150, u=150, s=56, w=56, f=L(-40, -4, x) + 90)
 
 
-arch("wadenpresse", "seite", wadenpresse, szene=[("linie", (22, 64), (48, 82), 4.6, "dunkel"), ("linie", (36, 82), (36, 104), 2.2)], punkte=("T1",), art="PLATTE", winkel=40)
+arch("wadenpresse", "seite", wadenpresse, szene=_presse_sitz() + [("linie", (50, 66), (92, 18), 1.6)], punkte=("T1",), art="PLATTE", winkel=40)
 
 
 def kbswing(x):
@@ -746,17 +799,17 @@ arch("laufen", "seite", laufen, dauer=1.0)
 
 
 def radfahren(x):
-    hu = (44, 56)
-    pedal = (56, 86)
+    hu = (44, 53)
+    pedal = (58, 88)
     w = L(0, 180, x)
     p1 = (pedal[0] + 8 * math.sin(math.radians(w)), pedal[1] - 8 * math.cos(math.radians(w)))
     p2 = (pedal[0] - 8 * math.sin(math.radians(w)), pedal[1] + 8 * math.cos(math.radians(w)))
-    return hal(huefte=hu, t=40, f=100, arm=[(1, (76, 46), -1), (2, (76, 46), -1)], bein=[(1, p1, -1), (2, p2, -1)])
+    return hal(huefte=hu, t=20, f=100, arm=[(1, (79, 42), -1), (2, (79, 42), -1)], bein=[(1, p1, -1), (2, p2, -1)])
 
 
 arch("radfahren", "seite", radfahren, dauer=1.2,
-     szene=[("linie", (44, 60), (56, 86), 2.6, "dunkel"), ("linie", (56, 86), (76, 44), 2.6, "dunkel"), ("linie", (36, 104), (92, 104), 3, "dunkel"),
-            ("linie", (56, 86), (56, 104), 3, "dunkel"), ("linie", (38, 58), (50, 58), 3, "dunkel")])
+     szene=[("linie", (38, 57), (50, 57), 3.4, "dunkel"), ("linie", (44, 58), (48, 104), 2.6, "dunkel"), ("linie", (86, 104), (80, 42), 2.6, "dunkel"),
+            ("linie", (76, 42), (84, 42), 3, "dunkel"), ("linie", (47, 92), (58, 88), 2.2, "dunkel"), ("linie", (36, 104), (92, 104), 3, "dunkel")])
 
 
 def rudergeraet(x):
@@ -767,7 +820,7 @@ def rudergeraet(x):
     g = gelenke("seite", p)
     s0 = g["S0"]
     hand = (L(s0[0] + 29, g["H"][0] + 12, x), L(s0[1] + 6, g["H"][1] - 10, x))
-    return hal(huefte=sitz, t=t, f=60, arm=[(1, hand, -1), (2, (hand[0] - 1, hand[1]), -1)],
+    return hal(huefte=sitz, t=t, f=60, arm=[(1, hand, 1), (2, (hand[0] - 1, hand[1]), 1)],
                bein=[(1, (78, 94), -1), (2, (78, 94), -1)])
 
 
@@ -775,7 +828,7 @@ arch("rudergeraet", "seite", rudergeraet, szene=[("linie", (16, 96), (96, 96), 2
 
 
 def crosstrainer(x):
-    return hal(huefte=(52, 50), t=4, f=90, arm=[(1, (L(66, 78, x), 52), -1), (2, (L(78, 66, x), 52), -1)],
+    return hal(huefte=(52, 46), t=4, f=90, arm=[(1, (L(66, 78, x), 52), -1), (2, (L(78, 66, x), 52), -1)],
                bein=[(1, (L(46, 66, x), L(88, 84, x)), -1), (2, (L(66, 46, x), L(84, 88, x)), -1)])
 
 
@@ -790,6 +843,42 @@ def seilspringen(x):
 arch("seilspringen", "vorn", seilspringen, dauer=0.8, punkte=H2, art="SEIL", anker=(60, -6), anker_b=(60, 112))
 
 
+# ================= Ergänzungen für Import-Übungen =================
+def katana(x):
+    # Katana Extension von hinten: Kabel kommt unten von der Gegenseite, Hand startet hinter der
+    # Gegenschulter (Ellbogen hoch, Arm gebeugt) und streckt diagonal nach oben außen – wie ein Schwert ziehen
+    p = hal("hinten", fuss=(1, 66), s1=176, w1=178, o2=176, u2=178)
+    g = gelenke("hinten", p)
+    s1 = g["S1"]
+    start = (56, s1[1] + 1)
+    ende = (s1[0] + 21, s1[1] - 21)
+    hand = (L(start[0], ende[0], x), L(start[1], ende[1], x))
+    return hal("hinten", fuss=(1, 66), s1=176, w1=178, o2=176, u2=178, arm=[(1, hand, -1)])
+
+
+arch("katana", "hinten", katana, punkte=H1, anker=(10, 100), art="KABEL")
+
+
+def rotatoren(x):
+    # Außenrotation am Kabel von vorn: Ellbogen am Körper, Unterarm waagerecht, dreht von vor dem Bauch nach außen
+    phi = L(-62, 72, x)  # Drehwinkel des Unterarms in der Waagerechten (0 = nach vorn)
+    dx, dy = 14 * math.sin(math.radians(phi)), 2.5
+    u = winkel_zu((0, 0), (dx, dy))
+    return hal("vorn", fuss=(1, 66), s1=176, w1=178, o1=176, u1=u, h1=0, ua1=math.hypot(dx, dy) / 14)
+
+
+arch("rotatoren", "vorn", rotatoren, punkte=H1, anker=(10, 52), art="KABEL")
+
+
+def schwimmen(x):
+    # Kraul von der Seite: Körper waagerecht im Wasser, Arme wechseln, Beine schlagen
+    return hal(huefte=(40, 74), t=92, k=-10, o1=L(30, 200, x), u1=L(40, 200, x), o2=L(200, 30, x), u2=L(200, 40, x),
+               s1=L(262, 280, x), w1=L(268, 282, x), s2=L(280, 262, x), w2=L(282, 268, x), f1=350, f2=350)
+
+
+arch("schwimmen", "seite", schwimmen, dauer=1.1, szene=[("linie", (-10, 70), (130, 70), 1.2)])
+
+
 # Rückfall für unbekannte Übungen: ruhig stehen
 arch("stehen_vorn", "vorn", lambda x: hal("vorn", fuss=(1, 66), o1=170, u1=172, s1=177, w1=180, z=L(0, 0.6, x)), dauer=4)
 arch("stehen_hinten", "hinten", lambda x: hal("hinten", fuss=(1, 66), o1=170, u1=172, s1=177, w1=180, z=L(0, 0.6, x)), dauer=4)
@@ -801,8 +890,8 @@ ZUORDNUNG = {
     "schraegbank": {"*": "schraegbank", "ma": "brustpresse"},
     "negativbank": {"*": "negativbank", "ma": "brustpresse"},
     "brustpresse": "brustpresse",
-    "fliegende": "fliegende",
-    "schraegfliegende": "fliegende",
+    "fliegende": {"*": "fliegende", "kh": "fliegende_bank", "kabel": "kabelcross"},
+    "schraegfliegende": {"*": "schraegfliegende", "kabel": "kabelcross"},
     "butterfly": "fliegende",
     "kabelcross": "kabelcross",
     "liegestuetz": "liegestuetz",
@@ -879,3 +968,55 @@ ZUORDNUNG = {
     "crosstrainer": "crosstrainer",
     "seilspringen": "seilspringen",
 }
+ZUORDNUNG.update({"katana": "katana:KABEL", "rotatoren": {"*": "rotatoren:KABEL", "band": "rotatoren:BAND"}, "schwimmen": "schwimmen"})
+
+# ================= Stichworte für Übungen ohne Katalogtreffer =================
+# (Wortanfänge im normierten Namen ohne Gerätewörter, Bewegung aus ZUORDNUNG, Gerätekürzel wenn der Name keins nennt).
+# Reihenfolge zählt: das erste passende Stichwort gewinnt.
+STICHWORTE = [
+    (["katana"], "katana", "kabel"),
+    (["rotator", "external rotation", "internal rotation", "aussenrotation", "innenrotation"], "rotatoren", "kabel"),
+    (["swim", "schwimm", "kraul", "brustschwimm"], "schwimmen", ""),
+    (["iso lateral pulldown", "iso lateral pull down"], "latzug", "ma"),
+    (["pulldown", "pull down", "latzug", "lat pull"], "latzug", "kabel"),
+    (["pull up", "pullup", "chin", "klimmzug"], "klimmzug", ""),
+    (["lateral", "side raise", "seitheben", "seitlich"], "seitheben", "kh"),
+    (["front raise", "frontheben"], "frontheben", "kh"),
+    (["rear delt", "reverse fly", "reverse butterfly"], "reversefly", "ma"),
+    (["face pull"], "facepull", "kabel"),
+    (["tricep curl", "triceps curl", "tricep push", "triceps push", "pushdown", "push down", "pressdown"], "trizepsdruecken", "kabel"),
+    (["tricep ext", "triceps ext", "overhead ext", "trizeps"], "trizepsueberkopf", "kh"),
+    (["skull", "french"], "stirndruecken", "ez"),
+    (["kickback"], "kickback", "kh"),
+    (["hammer"], "hammercurl", "kh"),
+    (["preacher", "scott"], "scottcurl", "ez"),
+    (["bicep", "biceps", "bizeps", "curl"], "bizepscurl", "kh"),
+    (["shoulder press", "overhead press", "military", "schulterdr"], "schulterdruecken", "ma"),
+    (["leg press", "beinpresse"], "beinpresse", "ma"),
+    (["leg ext", "beinstreck"], "beinstrecker", "ma"),
+    (["leg curl", "beinbeug"], "beincurl", "ma"),
+    (["calf", "wade"], "wadenstehend", "ma"),
+    (["squat", "kniebeug"], "kniebeuge", "lh"),
+    (["decline", "negativ"], "negativbank", "lh"),
+    (["incline", "schraeg"], "schraegbank", "lh"),
+    (["chest press", "brustpresse"], "brustpresse", "ma"),
+    (["fly", "flye", "butterfly", "pec deck"], "fliegende", "ma"),
+    (["crossover", "cross over"], "kabelcross", "kabel"),
+    (["bench", "bankdr", "press"], "bankdruecken", "lh"),
+    (["dip"], "dips", ""),
+    (["bock", "back ext", "hyperext", "rueckenstreck", "unterer r"], "hyperext", ""),
+    (["deadlift", "kreuzheb"], "kreuzheben", "lh"),
+    (["row machine", "rowing", "ergo"], "rudergeraet", ""),
+    (["row", "ruder"], "kabelrudern", "kabel"),
+    (["shrug"], "shrugs", "kh"),
+    (["lunge", "ausfall"], "ausfallschritt", "kh"),
+    (["abduct", "abdukt"], "abduktor", "ma"),
+    (["adduct", "addukt"], "adduktor", "ma"),
+    (["hip thrust", "glute", "bridge"], "hipthrust", "lh"),
+    (["crunch", "sit up", "situp", "bauch"], "crunch", ""),
+    (["plank", "unterarmst"], "plank", ""),
+    (["leg raise", "knee raise", "beinheb"], "beinheben", ""),
+    (["bike", "cycl", "rad", "spinning"], "radfahren", ""),
+    (["elliptical", "cross trainer", "crosstrain"], "crosstrainer", ""),
+    (["run", "jog", "lauf", "treadmill", "cardio", "walk"], "laufen", ""),
+]
