@@ -6,6 +6,7 @@ import { Format, Rechnung, Belastung, Muskel, MUSKELN, Messart, MESSARTEN, SatzT
 import { trainingLaden, trainingSpeichern, standLaden, meta, dauerhaftBitten } from './speicher.js';
 import { profilGesetzt } from './logik.js';
 import { sicherungSpeichern, dateiLesen, inhaltText, uebernehmen } from './sicherung.js';
+import { FigurBild } from './figuren.js';
 import { html, Page, Abschnitt, Hinweis, Klein, Leer, Knopf, Eingabe, ZahlFeld, Auswahl, Schalter, Zaehler, Chip, Dialog } from './teile.js';
 
 const TAG = 86_400_000;
@@ -452,6 +453,7 @@ function BlockKarte({ i, b, w, laufend, vm }) {
   return html`
     <div class="karte block">
       <div class="block-kopf">
+        <button class="block-bild" onClick=${() => vm.oeffnen({ typ: 'uebung', id: u.id })} aria-label=${'Übung ' + u.name + ' ansehen'}><${FigurBild} uebung=${u} klein /></button>
         <button class="block-name" onClick=${() => vm.oeffnen({ typ: 'uebung', id: u.id })}>
           <strong>${u.name}</strong><span class=${'klein ' + (u.primaer.length ? 'leise' : 'pflicht-text')}>${muskelText(u)}</span>
         </button>
@@ -520,9 +522,12 @@ function UebungWaehlen({ vm }) {
   const treffer = alle.filter((u) => (!filter || u.primaer.includes(filter) || u.sekundaer.includes(filter))
     && (!woerter.length || woerter.every((x) => T.norm(u.name + ' ' + u.importName).includes(x))));
   const zuletzt = !q && !filter ? treffer.filter((u) => nutzung[u.id]).sort((a, b) => nutzung[b.id][1] - nutzung[a.id][1]).slice(0, 8) : [];
-  const zeile = (u) => html`<button class="zeile-uebung" key=${u.id} onClick=${() => vm.uebungHinzu(u.id)}>
-    <span class="reihe-text"><span>${u.name}</span>${nutzung[u.id] && html`<span class="klein leise">${nutzung[u.id][0]}×</span>`}</span>
-    <span class=${'klein ' + (u.primaer.length ? 'leise' : 'pflicht-text')}>${muskelText(u)}</span>
+  const zeile = (u) => html`<button class="zeile-uebung mit-bild" key=${u.id} onClick=${() => vm.uebungHinzu(u.id)}>
+    <${FigurBild} uebung=${u} klein />
+    <span class="zeile-text">
+      <span class="reihe-text"><span>${u.name}</span>${nutzung[u.id] && html`<span class="klein leise">${nutzung[u.id][0]}×</span>`}</span>
+      <span class=${'klein ' + (u.primaer.length ? 'leise' : 'pflicht-text')}>${muskelText(u)}</span>
+    </span>
   </button>`;
   return html`
     <${Page} titel="Übung wählen" zurueck=${() => history.back()}
@@ -650,10 +655,13 @@ function VerlaufTab({ vm }) {
         ${!liste.length && html`<${Leer}>${s.workouts.length ? 'Keine Übung gefunden.' : 'Noch keine Trainings.'}<//>`}
         ${liste.map((u) => {
           const n = nutzung[u.id];
-          return html`<button class="zeile-uebung" key=${u.id} onClick=${() => vm.oeffnen({ typ: 'uebung', id: u.id })}>
-            <span>${u.name}</span>
-            <span class="klein leise">${[n && anzahl(n[0], 'Training', 'Trainings'), n && `zuletzt ${Format.datumKurz(n[1])}`, bestes[u.id] > 0 && `1RM ≈ ${Format.kg(bestes[u.id])}`].filter(Boolean).join(' · ') || 'noch nicht trainiert'}</span>
-            ${!u.primaer.length && html`<span class="klein pflicht-text">Muskelgruppen fehlen, antippen zum Zuordnen</span>`}
+          return html`<button class="zeile-uebung mit-bild" key=${u.id} onClick=${() => vm.oeffnen({ typ: 'uebung', id: u.id })}>
+            <${FigurBild} uebung=${u} klein />
+            <span class="zeile-text">
+              <span>${u.name}</span>
+              <span class="klein leise">${[n && anzahl(n[0], 'Training', 'Trainings'), n && `zuletzt ${Format.datumKurz(n[1])}`, bestes[u.id] > 0 && `1RM ≈ ${Format.kg(bestes[u.id])}`].filter(Boolean).join(' · ') || 'noch nicht trainiert'}</span>
+              ${!u.primaer.length && html`<span class="klein pflicht-text">Muskelgruppen fehlen, antippen zum Zuordnen</span>`}
+            </span>
           </button>`;
         })}
       </div>
@@ -684,6 +692,10 @@ function UebungDetail({ vm, id }) {
   const best = r.e1rm?.wert || 0;
   return html`
     <${Page} titel=${u.name} zurueck=${() => history.back()} aktionen=${html`<button class="knopf text" onClick=${() => vm.uebungBearbeiten(id)}>Bearbeiten</button>`}>
+      <div class="uebung-bild">
+        <${FigurBild} uebung=${u} animiert />
+        <div class="figur-legende klein"><span><i class="punkt p"></i>Hauptmuskel</span><span><i class="punkt s"></i>arbeitet mit</span></div>
+      </div>
       <${Klein}><span class=${u.primaer.length ? 'leise' : 'pflicht-text'}>${muskelText(u)}</span><//>
       ${!verlauf.length ? html`<${Leer}>Noch nicht trainiert.<//>` : html`
         <div class="chips scroll">${ms.map((m) => html`<${Chip} an=${metrik === m} onClick=${() => setMetrik(m)}>${METRIKEN[m].titel}<//>`)}</div>
