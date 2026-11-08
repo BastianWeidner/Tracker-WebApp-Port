@@ -2,7 +2,7 @@
 // Die Haltungen stehen in figuren-daten.js (erzeugt aus werkzeuge/figuren/, nicht von Hand ändern).
 import { html, useEffect, useRef } from '../vendor/preact-htm.js';
 import DATEN from './figuren-daten.js';
-import { Geraet, finde } from './training-logik.js';
+import { Geraet, finde, zerlege } from './training-logik.js';
 
 const L_RUMPF = 30, L_OA = 16, L_UA = 14, L_HAND = 3, L_OS = 23, L_US = 22, L_FUSS = 8, L_FERSE = 2.5;
 const SCHULTER_BREIT = 10, HUEFTE_BREIT = 5.5;
@@ -10,11 +10,14 @@ const SCHULTER_BREIT = 10, HUEFTE_BREIT = 5.5;
 const d = (a) => { const r = (a * Math.PI) / 180; return [Math.sin(r), -Math.cos(r)]; };
 const add = (p, v, s = 1) => [p[0] + v[0] * s, p[1] + v[1] * s];
 
-/** Gelenkpunkte einer Haltung (17 Zahlen: hx hy t k z o1 u1 h1 o2 u2 h2 s1 w1 f1 s2 w2 f2). */
+/** Gelenkpunkte einer Haltung (17 Zahlen: hx hy t k z o1 u1 h1 o2 u2 h2 s1 w1 f1 s2 w2 f2;
+ * optional 18.: Längenfaktor Oberschenkel, 19.: Längenfaktor Unterarm 1, 20.: Längenfaktor beider Arme,
+ * wenn das Glied zum Betrachter zeigt). */
 export function gelenke(ansicht, h) {
   const g = {};
   const H = [h[0], h[1]];
   const [t, k, z] = [h[2], h[3], h[4]];
+  const os = h.length > 17 ? h[17] : 1, ua1 = h.length > 18 ? h[18] : 1, af = h.length > 19 ? h[19] : 1;
   g.H = H;
   let sh, hu;
   if (ansicht === 'seite') {
@@ -46,9 +49,9 @@ export function gelenke(ansicht, h) {
   [[5, 6, 7, 11, 12, 13], [8, 9, 10, 14, 15, 16]].forEach(([oi, ui, hi, si, wi, fi], i) => {
     const n = i + 1;
     const S = sh[i];
-    const E = add(S, d(h[oi]), L_OA);
-    const W = add(E, d(h[ui]), L_UA);
-    const K = add(hu[i], d(h[si]), L_OS);
+    const E = add(S, d(h[oi]), L_OA * af);
+    const W = add(E, d(h[ui]), L_UA * af * (i === 0 ? ua1 : 1));
+    const K = add(hu[i], d(h[si]), L_OS * os);
     const A = add(K, d(h[wi]), L_US);
     Object.assign(g, { ['S' + n]: S, ['E' + n]: E, ['W' + n]: W, ['HA' + n]: add(W, d(h[ui] + h[hi]), L_HAND), ['HU' + n]: hu[i], ['K' + n]: K, ['A' + n]: A });
     if (ansicht === 'seite') {
@@ -57,6 +60,10 @@ export function gelenke(ansicht, h) {
     } else {
       g['T' + n] = add(A, d(h[wi] + (i === 0 ? 25 : -25)), 4.5);
       g['F' + n] = A;
+      // Knie außen/innen (Polster der Abduktoren-/Adduktorenmaschine)
+      const p = d(t + 90), sg = i === 0 ? 1 : -1;
+      g['KA' + n] = add(K, p, 3.8 * sg);
+      g['KI' + n] = add(K, p, -3.8 * sg);
     }
   });
   return g;
@@ -73,7 +80,8 @@ const MUSKELN = {
   ],
   vorn: [
     ['BAUCH', 'rumpf', 0.10, 0.58, 0.0, 3.6], ['BRUST', 'rumpf', 0.60, 0.90, 4.6, 3.7], ['BRUST', 'rumpf', 0.60, 0.90, -4.6, 3.7],
-    ['TRAPEZ', 'rumpf', 0.93, 1.07, 5.4, 1.6], ['TRAPEZ', 'rumpf', 0.93, 1.07, -5.4, 1.6], ['QUADRIZEPS', 'os', 0.12, 0.92, 0.5, 3.1],
+    ['TRAPEZ', 'rumpf', 0.93, 1.07, 5.4, 1.6], ['TRAPEZ', 'rumpf', 0.93, 1.07, -5.4, 1.6],
+    ['GESAESS', 'rumpf', -0.04, 0.14, 7.0, 1.7], ['GESAESS', 'rumpf', -0.04, 0.14, -7.0, 1.7], ['QUADRIZEPS', 'os', 0.12, 0.92, 0.5, 3.1],
     ['ADDUKTOREN', 'os', 0.06, 0.52, -2.8, 1.5], ['WADEN', 'us', 0.08, 0.50, -1.6, 1.4], ['WADEN', 'us', 0.08, 0.50, 1.6, 1.4],
     ['BIZEPS', 'oa', 0.34, 0.90, 0.0, 2.0], ['SCHULTERN', 'oa', -0.10, 0.38, 0.0, 3.5], ['UNTERARME', 'ua', 0.04, 0.66, 0.0, 2.0],
   ],
@@ -127,10 +135,26 @@ export function musterFuer(u) {
       key = b.key;
       const tu = t.uebung?.id || '';
       kurz = tu.includes('-') ? tu.slice(tu.indexOf('-') + 1) : '';
+      // Bewegung bekannt, Gerät nicht im Katalog (z. B. „Cable Shoulder Press“): Gerät aus dem Namen zeichnen
+      const g = t.uebung ? null : zerlege(u.importName || u.name || '')[1];
+      if (g) kurz = Geraet[g].kurz;
     }
   }
   let z = key && DATEN.zuordnung[key];
   let geraet = Object.keys(Geraet).find((g) => Geraet[g].kurz === kurz) || null;
+  if (!z) {
+    // Kein Katalogtreffer: Stichworte im Namen (z. B. „Katana Extension“, „Iso-lateral Pulldown“)
+    const [basis, g] = zerlege(u.importName || u.name || '');
+    const t = ` ${basis} `;
+    for (const [worte, k, std] of DATEN.stichworte || []) {
+      if (!worte.some((w) => t.includes(` ${w}`))) continue;
+      const kz = g ? Geraet[g].kurz : / machi/.test(t) ? 'ma' : std;
+      z = DATEN.zuordnung[k];
+      if (typeof z === 'object') z = z[kz] ?? z['*'];
+      const [m, art] = z.split(':');
+      return { muster: DATEN.muster[m], geraet: art || Object.keys(Geraet).find((x) => Geraet[x].kurz === kz) || null };
+    }
+  }
   if (!z) {
     // Unbekannt: ruhig stehend, Ansicht nach Hauptmuskeln
     const hinten = ['TRIZEPS', 'LAT', 'TRAPEZ', 'UNTERER_RUECKEN', 'GESAESS', 'BEINBEUGER', 'WADEN'];
@@ -203,7 +227,7 @@ function lastSvg(last, geraet, g, ansicht, x) {
     if (ansicht === 'seite') {
       const m = [punkte.reduce((s, p) => s + p[0], 0) / punkte.length, punkte.reduce((s, p) => s + p[1], 0) / punkte.length];
       if (art === 'SMITH') hinten.push(linie([m[0] + 1.5, -4], [m[0] + 1.5, 104], 1.6, 'fgh', 'butt'));
-      hinten.push(kreis(m, art === 'EZ' ? 6.4 : 8.2, 'fg-f'));
+      (last.vorn ? vorn : hinten).push(kreis(m, art === 'EZ' ? 6.4 : 8.2, 'fg-f'));
       vorn.push(kreis(m, 1.6, 'fg-f'));
     } else {
       const [a, b] = [punkte[0], punkte[punkte.length - 1]];
@@ -240,8 +264,8 @@ function lastSvg(last, geraet, g, ansicht, x) {
       vorn.push(linie(a, p, 2.4, 'fg'), kreis(a, 2.2, 'fg-f'), kreis(p, 2.4, 'fg-f'));
     });
   } else if (art === 'PLATTE') {
-    const v = d((last.winkel || 0) + 90);
-    punkte.forEach((p) => vorn.push(linie(add(p, v, -7), add(p, v, 7), 3, 'fg')));
+    const v = d((last.winkel || 0) + 90), n = d(last.winkel || 0);
+    punkte.forEach((p0) => { const p = add(p0, n, last.versatz || 0); vorn.push(linie(add(p, v, -7), add(p, v, 7), 3, 'fg')); });
   }
   return [hinten, vorn];
 }
@@ -298,6 +322,9 @@ export function rahmen(muster) {
 /** Fortschritt hin und her, weich an den Enden. */
 export const pendel = (sek, dauer) => (1 - Math.cos((2 * Math.PI * sek) / (2 * dauer))) / 2;
 
+/** Fortschritt zur Zeit: hin und her, bei zyklischen Mustern (Radfahren, Schwimmen) immer vorwärts im Kreis. */
+export const fortschritt = (muster, sek) => (muster.zyklisch ? ((sek / (2 * muster.dauer)) % 1 + 1) % 1 : pendel(sek, muster.dauer));
+
 /** Übungsbild. animiert: Bewegung läuft (nur wenn sichtbar und ohne „Bewegung reduzieren“). */
 export function FigurBild({ uebung, animiert = false, klein = false }) {
   const ref = useRef();
@@ -311,7 +338,7 @@ export function FigurBild({ uebung, animiert = false, klein = false }) {
     let id = 0, sichtbar = true;
     const t0 = performance.now();
     const schritt = (t) => {
-      if (sichtbar) el.innerHTML = figurSvg(info.muster, info.geraet, prim, sek, pendel((t - t0) / 1000, info.muster.dauer));
+      if (sichtbar) el.innerHTML = figurSvg(info.muster, info.geraet, prim, sek, fortschritt(info.muster, (t - t0) / 1000));
       id = requestAnimationFrame(schritt);
     };
     const beob = 'IntersectionObserver' in window ? new IntersectionObserver(([e]) => { sichtbar = e.isIntersecting; }) : null;
