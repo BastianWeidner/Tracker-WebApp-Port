@@ -2,7 +2,7 @@
 // und darüber ein Stapel von Ansichten (Training bearbeiten, Übung wählen, Übung, Import …).
 import { useState, useEffect, useMemo, useRef } from '../vendor/preact-htm.js';
 import * as T from './training-logik.js';
-import { Format, Rechnung, Belastung, Muskel, MUSKELN, Messart, MESSARTEN, SatzTyp, SATZTYPEN, FELDER, Import, Anleitung, anzahl, muskelText } from './training-logik.js';
+import { Format, Rechnung, Belastung, Muskel, MUSKELN, Messart, MESSARTEN, SatzTyp, SATZTYPEN, FELDER, Import, Anleitung, anzahl, muskelText, unterstuetzbar } from './training-logik.js';
 import { trainingLaden, trainingSpeichern, standLaden, meta, dauerhaftBitten } from './speicher.js';
 import { profilGesetzt } from './logik.js';
 import { sicherungSpeichern, dateiLesen, inhaltText, uebernehmen } from './sicherung.js';
@@ -449,6 +449,13 @@ function EditorScreen({ vm, laufend }) {
 function BlockKarte({ i, b, w, laufend, vm }) {
   const u = vm.uebungen[b.uebungId] || T.uebung({ id: b.uebungId, name: 'Unbekannte Übung' });
   const letzte = useMemo(() => Rechnung.letzteSaetze(b.uebungId, vm.s.workouts, w.start).filter(Rechnung.zaehlt), [vm.s.workouts, b.uebungId, w.start]);
+  // Unterstützung (Gegengewicht an Dips-/Klimmzugmaschine, Band): Eingabe positiv, gespeichert als negatives Zusatzgewicht.
+  // So braucht niemand ein Minus auf der Zahlentastatur.
+  const [hilfe, setHilfe] = useState(() => b.saetze.some((x) => x.gewicht < 0) || (b.saetze.every((x) => !x.gewicht) && letzte.some((x) => x.gewicht < 0)));
+  const hilfeWechsel = (an) => {
+    setHilfe(an);
+    vm.block(i, (bl) => ({ ...bl, saetze: bl.saetze.map((x) => (x.gewicht ? { ...x, gewicht: an ? -Math.abs(x.gewicht) : Math.abs(x.gewicht) } : x)) }));
+  };
   let nr = 0;
   return html`
     <div class="karte block">
@@ -461,21 +468,23 @@ function BlockKarte({ i, b, w, laufend, vm }) {
         <button class="knopf text eng" disabled=${i === w.bloecke.length - 1} onClick=${() => vm.blockVerschieben(i, false)} aria-label="nach unten">↓</button>
         <button class="knopf text eng" onClick=${() => vm.blockLoeschen(i)} aria-label="Übung entfernen">✕</button>
       </div>
+      ${(unterstuetzbar(u) || hilfe) && html`<${Schalter} label="mit Unterstützung" an=${hilfe} onWechsel=${hilfeWechsel}
+        hilfe=${hilfe ? 'kg = Gegengewicht oder Band, wird vom Körpergewicht abgezogen' : null} />`}
       ${letzte.length > 0 && html`<${Klein} leise>Letztes Mal: ${letzte.map((x) => Format.satz(x, u.art)).join(' · ')}<//>`}
       ${b.saetze.map((x, j) => {
         if (x.typ !== 'AUFWAERMEN') nr++;
-        return html`<${SatzZeile} key=${j} nr=${nr} s=${x} art=${u.art} laufend=${laufend} koerper=${vm.koerper}
+        return html`<${SatzZeile} key=${j} nr=${nr} s=${x} art=${u.art} hilfe=${hilfe} laufend=${laufend} koerper=${vm.koerper}
           onChange=${(neu) => vm.satzAendern(i, j, neu)} onHaken=${() => vm.satzAbhaken(i, j)} onLoeschen=${() => vm.satzLoeschen(i, j)} />`;
       })}
       <button class="knopf text" onClick=${() => vm.satzHinzu(i)}>+ Satz</button>
     </div>`;
 }
 
-function SatzZeile({ nr, s, art, laufend, koerper, onChange, onHaken, onLoeschen }) {
+function SatzZeile({ nr, s, art, hilfe, laufend, koerper, onChange, onHaken, onLoeschen }) {
   const naechster = SATZTYPEN[(SATZTYPEN.indexOf(s.typ) + 1) % SATZTYPEN.length];
   const felder = {
     GEWICHT: [['kg', s.gewicht, (v) => ({ gewicht: v })], ['Wdh.', s.wdh, (v) => ({ wdh: Math.round(v) }), true]],
-    KOERPER: [['± kg', s.gewicht, (v) => ({ gewicht: v }), false, true], ['Wdh.', s.wdh, (v) => ({ wdh: Math.round(v) }), true]],
+    KOERPER: [hilfe ? ['− kg Hilfe', -s.gewicht, (v) => ({ gewicht: -Math.abs(v) })] : ['+ kg', s.gewicht, (v) => ({ gewicht: Math.abs(v) })], ['Wdh.', s.wdh, (v) => ({ wdh: Math.round(v) }), true]],
     ZEIT: [['kg', s.gewicht, (v) => ({ gewicht: v })], ['Sek.', s.sekunden, (v) => ({ sekunden: Math.round(v) }), true]],
     CARDIO: [['km', s.meter / 1000, (v) => ({ meter: v * 1000 })], ['Min.', s.sekunden / 60, (v) => ({ sekunden: Math.round(v * 60) })]],
   }[art];

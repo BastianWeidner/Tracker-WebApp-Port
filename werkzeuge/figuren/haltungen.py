@@ -259,6 +259,20 @@ def trizepsdips(x):
 arch("trizepsdips", "seite", trizepsdips, szene=[BANK(16, 38, 68)])
 
 
+def trizepsmaschine(x):
+    # Sitzende Trizepsmaschine (Seated Dip): Rücken am Polster, Griffe neben dem Rumpf. Hände drücken von
+    # Brusthöhe (Ellbogen gebeugt, zeigen nach hinten) nach unten bis die Arme neben der Hüfte gestreckt sind.
+    hu = (46, 68)
+    dp, r_ = (74, 60), 30.0
+    w = math.radians(L(-84, -111, x))  # Griff auf dem Kreis um den Hebeldrehpunkt vorn
+    z = (dp[0] + r_ * math.sin(w), dp[1] - r_ * math.cos(w))
+    return hal(huefte=hu, t=-6, s=88, w=170, f=95, arm=[(1, z, 1), (2, (z[0] - 1, z[1]), 1)])
+
+
+arch("trizepsmaschine", "seite", trizepsmaschine, szene=[BANK(36, 56, 72), ("linie", (38, 72), (34.2, 36.2), 4, "dunkel")],
+     punkte=H2, anker=(74, 60), art="MASCHINE")
+
+
 # ================= Rücken =================
 def kreuzheben(x):
     return hal(fuss=(1, 55), t=L(58, 0, x), s=L(126, 180, x), w=L(208, 180, x), o=180, u=180, o2=181, u2=181)
@@ -645,6 +659,18 @@ def hackenschmidt(x):
 arch("hackenschmidt", "seite", hackenschmidt, punkte=("NACKEN",), art="POLSTER", szene=[("linie", (34, 104), (50, 10), 2.2), ("linie", (56, 103), (76, 103), 2.6, "dunkel")])
 
 
+def bulgarisch_hack(x):
+    # Bulgarian Hack Squat: Ausfallschritt an der Hackenschmidt-Maschine. Rücken am schrägen Schlitten, Schultern unter
+    # den Polstern, vorderer Fuß weit vorn auf der Fußplatte, das hintere Knie sinkt Richtung Boden.
+    t = L(-30, -22, x)
+    hu = (L(48, 44, x), L(66, 81, x))
+    return hal(huefte=hu, t=t, o=t + 200, u=t + 30, f1=90, f2=L(140, 160, x),
+               bein=[(1, (74, 101.3), -1), (2, (L(26, 24, x), 100.5), -1)])
+
+arch("bulgarisch_hack", "seite", bulgarisch_hack, punkte=("NACKEN",), art="POLSTER",
+     szene=[("linie", (48, 86), (16, 20), 3.0), ("linie", (44, 86), (44, 104), 2.2), ("linie", (64, 103), (88, 103), 2.6, "dunkel")])
+
+
 def _presse_sitz(hu=(40, 76), t=-58):
     dt = d(t)
     hinten = (dt[1] * 6, -dt[0] * 6)  # zur Rückenseite
@@ -1002,7 +1028,8 @@ ZUORDNUNG = {
     "stirndruecken": "stirndruecken",
     "trizepsueberkopf": "trizepsueberkopf",
     "enges": "bankdruecken",
-    "trizepsdips": {"*": "trizepsdips", "ma": "dips"},
+    "trizepsdips": {"*": "trizepsdips", "ma": "trizepsmaschine"},
+    "trizepsmaschine": "trizepsmaschine",
     "kickback": "kickback",
     "handgelenk": "handgelenk",
     "farmer": "farmer",
@@ -1010,6 +1037,7 @@ ZUORDNUNG = {
     "frontkniebeuge": "frontkniebeuge",
     "goblet": "goblet",
     "hackenschmidt": "hackenschmidt",
+    "bulgarisch_hack": "bulgarisch_hack",
     "beinpresse": "beinpresse",
     "ausfallschritt": "ausfallschritt",
     "bulgarisch": "bulgarisch",
@@ -1067,6 +1095,9 @@ STICHWORTE = [
     (["leg ext", "beinstreck"], "beinstrecker", "ma"),
     (["leg curl", "beinbeug"], "beincurl", "ma"),
     (["calf", "wade"], "wadenstehend", "ma"),
+    (["bulgarian hack", "hack split", "split hack"], "bulgarisch_hack", "ma"),
+    (["hack"], "hackenschmidt", "ma"),
+    (["bulgarian", "split squat", "bulgarisch"], "bulgarisch", "kh"),
     (["squat", "kniebeug"], "kniebeuge", "lh"),
     (["decline", "negativ"], "negativbank", "lh"),
     (["incline", "schraeg"], "schraegbank", "lh"),

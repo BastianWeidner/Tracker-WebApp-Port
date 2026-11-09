@@ -9,7 +9,7 @@ import { TrainingApp } from './training.js';
 import { ProfilSeite, profilAbgleichen, profilKurz } from './profil.js';
 import { profilGesetzt } from './logik.js';
 
-const VERSION = '1.3.2';
+const VERSION = '1.3.3';
 
 const BEREICHE = {
   training: { titel: 'Training', symbol: '🏋️', farbe: '#C2185B', text: 'Workouts mit Sätzen und Gewichten, Fortschritt je Übung, Belastung je Muskelgruppe, Import aus Stronger.' },

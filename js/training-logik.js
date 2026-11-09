@@ -114,6 +114,9 @@ const [L_, K_, C_, M_, S_, E_, KB_, B_] = ['LH', 'KH', 'KABEL', 'MASCHINE', 'SMI
 /** Bewegung: [key, name, en, primaer, sekundaer, geraete (null = ohne Gerät), art]. */
 const B = (key, name, en, primaer, sekundaer = [], geraete = [null], art = 'GEWICHT') => ({ key, name, en, primaer, sekundaer, geraete, art });
 
+/** Bewegungen, deren Maschinen-Variante mit dem Gewichtsblock arbeitet (nicht unterstützend wie Dips- oder Klimmzug-Maschine). */
+const MASCHINE_MIT_BLOCK = new Set(['trizepsdips', 'crunch']);
+
 export const BEWEGUNGEN = [
   // Brust
   B('bankdruecken', 'Bankdrücken', ['bench press', 'flat bench press', 'chest press flat'], [BRUST], [TRIZEPS, SCHULTERN], [L_, K_, S_, M_]),
@@ -165,6 +168,7 @@ export const BEWEGUNGEN = [
   B('trizepsueberkopf', 'Trizeps über Kopf', ['overhead triceps extension', 'triceps extension', 'tricep extension', 'overhead tricep extension'], [TRIZEPS], [], [K_, C_, E_]),
   B('enges', 'Enges Bankdrücken', ['close grip bench press', 'close grip bench'], [TRIZEPS, BRUST], [SCHULTERN], [L_, S_]),
   B('trizepsdips', 'Trizeps-Dips', ['triceps dip', 'tricep dip', 'bench dip', 'bench dips', 'triceps dips'], [TRIZEPS], [BRUST, SCHULTERN], [null, M_], 'KOERPER'),
+  B('trizepsmaschine', 'Trizepsdrücken sitzend', ['seated dip', 'seated dip machine', 'seated dips', 'seated triceps press', 'triceps press machine', 'tricep press machine', 'triceps dip machine', 'tricep dip machine', 'triceps machine', 'trizepsmaschine', 'trizepsdrücken maschine'], [TRIZEPS], [BRUST, SCHULTERN], [M_]),
   B('kickback', 'Trizeps-Kickback', ['triceps kickback', 'tricep kickback', 'kickback'], [TRIZEPS], [], [K_, C_]),
   B('handgelenk', 'Unterarmcurl', ['wrist curl', 'wrist curls', 'reverse wrist curl'], [UNTERARME], [], [L_, K_]),
   B('farmer', "Farmer's Walk", ['farmers walk', 'farmer walk', 'farmers carry', 'farmer s walk'], [UNTERARME, TRAPEZ], [BAUCH, QUADRIZEPS], [K_, null], 'GEWICHT'),
@@ -173,6 +177,7 @@ export const BEWEGUNGEN = [
   B('frontkniebeuge', 'Frontkniebeuge', ['front squat'], [QUADRIZEPS], [GESAESS, BAUCH], [L_]),
   B('goblet', 'Goblet Squat', ['goblet squat'], [QUADRIZEPS, GESAESS], [ADDUKTOREN], [K_, KB_]),
   B('hackenschmidt', 'Hackenschmidt', ['hack squat'], [QUADRIZEPS], [GESAESS], [M_]),
+  B('bulgarisch_hack', 'Bulgarian Hack Squat', ['bulgarian hack squat', 'bulgarian split hack squat', 'hack split squat', 'split hack squat'], [QUADRIZEPS, GESAESS], [ADDUKTOREN, BEINBEUGER], [M_]),
   B('beinpresse', 'Beinpresse', ['leg press', '45 degree leg press', 'seated leg press'], [QUADRIZEPS, GESAESS], [ADDUKTOREN], [M_]),
   B('ausfallschritt', 'Ausfallschritte', ['lunge', 'lunges', 'walking lunge', 'walking lunges', 'reverse lunge'], [QUADRIZEPS, GESAESS], [ADDUKTOREN, BEINBEUGER], [K_, L_, null]),
   B('bulgarisch', 'Bulgarische Kniebeuge', ['bulgarian split squat', 'split squat'], [QUADRIZEPS, GESAESS], [ADDUKTOREN], [K_, L_, S_, null]),
@@ -213,12 +218,18 @@ const bewegungsId = (b, g) => (g == null ? b.key : `${b.key}-${Geraet[g].kurz}`)
 const bewegungsUebung = (b, g) => uebung({
   id: bewegungsId(b, g),
   name: g == null ? b.name : `${b.name} (${Geraet[g].titel})`,
-  art: g === 'KOERPER' && b.art === 'GEWICHT' ? 'KOERPER' : b.art,
+  // Maschinen mit eigenem Gewichtsblock (Trizeps-Dips sitzend, Bauchmaschine): kg sind die Last, kein Zusatz zum Körpergewicht
+  art: g === 'KOERPER' && b.art === 'GEWICHT' ? 'KOERPER' : g === 'MASCHINE' && b.art === 'KOERPER' && MASCHINE_MIT_BLOCK.has(b.key) ? 'GEWICHT' : b.art,
   primaer: b.primaer, sekundaer: b.sekundaer,
 });
 
 export const KATALOG = BEWEGUNGEN.flatMap((b) => b.geraete.map((g) => bewegungsUebung(b, g)));
 export const katalogNachId = Object.fromEntries(KATALOG.map((u) => [u.id, u]));
+
+// Körpergewicht-Übungen, die es mit Unterstützung gibt (Gegengewicht an der Maschine, Widerstandsband)
+const MIT_UNTERSTUETZUNG = new Set(['dips', 'klimmzug', 'chinup', 'trizepsdips', 'beinheben']);
+/** Schalter „mit Unterstützung“ anbieten: passende Katalogübungen und eigene Körpergewicht-Übungen. */
+export const unterstuetzbar = (u) => u.art === 'KOERPER' && (!katalogNachId[u.id] || MIT_UNTERSTUETZUNG.has(u.id.split('-')[0]));
 
 const bewegungNachAlias = new Map();
 for (const b of BEWEGUNGEN) if (!bewegungNachAlias.has(norm(b.name))) bewegungNachAlias.set(norm(b.name), b);

@@ -331,7 +331,9 @@ button { font: inherit; color: inherit; }
 .karte.vorlage .klein:not(.stark-farbe) { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .karte.workout { display: flex; flex-direction: column; gap: 2px; cursor: pointer; padding: 12px 14px; color: inherit; }
 .karte.workout > * + * { margin-top: 0; }
-.uhrzeile { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+/* Trainingsuhr bleibt beim Scrollen oben angeheftet */
+.uhrzeile { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; position: sticky; top: -4px; z-index: 2;
+  margin: -4px -16px 0; padding: 8px 16px; background: var(--background); border-bottom: 1px solid var(--outline-variant); }
 .uhrzeile .gross-wert { flex: 1; }
 .pause { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 18px; color: var(--primary); }
 .karte.block { padding: 10px 6px 6px 12px; }

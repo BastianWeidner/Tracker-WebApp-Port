@@ -305,3 +305,21 @@ ok('Verbrauch (Netto-MET)', () => {
   // 10 km/h → MET 10: (10 − 1) × 80 × 0,5 = 360
   assert.equal(Verbrauch.kcal(lauf, katalogNachId, 80), 360);
 });
+
+ok('Maschinen mit Gewichtsblock zählen kein Körpergewicht', () => {
+  const art = (id) => T.KATALOG.find((u) => u.id === id).art;
+  assert.equal(art('trizepsdips-ma'), 'GEWICHT');
+  assert.equal(art('crunch-ma'), 'GEWICHT');
+  assert.equal(art('trizepsdips'), 'KOERPER');
+  assert.equal(art('dips-ma'), 'KOERPER');
+});
+
+ok('Schalter „mit Unterstützung“ nur bei passenden Übungen, Last wird abgezogen', () => {
+  const u = (id) => T.katalogNachId[id];
+  assert.ok(T.unterstuetzbar(u('klimmzug-ma')));
+  assert.ok(T.unterstuetzbar(u('dips')));
+  assert.ok(!T.unterstuetzbar(u('liegestuetz')));
+  assert.ok(!T.unterstuetzbar(u('trizepsdips-ma')));
+  assert.ok(T.unterstuetzbar(T.uebung({ id: 'eigen-x', name: 'Eigene', art: 'KOERPER' })));
+  assert.equal(T.Rechnung.last({ gewicht: -20, wdh: 8 }, 'KOERPER', 86), 66);
+});
