@@ -9,7 +9,7 @@ import { TrainingApp } from './training.js';
 import { ProfilSeite, profilAbgleichen, profilKurz } from './profil.js';
 import { profilGesetzt } from './logik.js';
 
-const VERSION = '1.3.3';
+const VERSION = '1.3.4';
 
 const BEREICHE = {
   training: { titel: 'Training', symbol: '🏋️', farbe: '#C2185B', text: 'Workouts mit Sätzen und Gewichten, Fortschritt je Übung, Belastung je Muskelgruppe, Import aus Stronger.' },
@@ -107,5 +107,20 @@ function Uebersicht({ oeffnen, profilOeffnen }) {
 render(html`<${Haupt} />`, document.getElementById('app'));
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('sw.js').catch((e) => console.warn('Service Worker', e));
+  // Lief schon eine ältere Version, übernimmt der neue Service Worker im Hintergrund. Die geöffnete Seite zeigt bis zum
+  // Neuladen noch den alten Stand, darum ein Hinweis zum Antippen (kein automatisches Neuladen mitten in der Eingabe).
+  const hatteAlte = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hatteAlte || document.getElementById('update-hinweis')) return;
+    const k = document.createElement('button');
+    k.id = 'update-hinweis';
+    k.className = 'update-hinweis';
+    k.textContent = 'Neue Version da – antippen zum Neuladen';
+    k.onclick = () => location.reload();
+    document.body.appendChild(k);
+  });
+  navigator.serviceWorker.register('sw.js').then((r) => {
+    // Beim Zurückkehren in die App (z. B. vom Homescreen) nach Updates sehen, nicht nur beim Kaltstart
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') r.update().catch(() => {}); });
+  }).catch((e) => console.warn('Service Worker', e));
 }
