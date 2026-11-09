@@ -1,6 +1,7 @@
 // Speicher auf dem Gerät (IndexedDB). Alles bleibt im Browser, nichts geht ins Netz.
 import { neuerStand, standLesen } from './logik.js';
 import * as T from './training-logik.js';
+import * as E from './einkauf-logik.js';
 
 const DB = 'food-boost'; // Name bleibt, damit vorhandene Daten erhalten bleiben.
 const STORE = 'kv';
@@ -79,6 +80,10 @@ export const standSpeichern = (s) => speichern('stand', s);
 // Training (Schlüssel „training“).
 export const trainingLaden = () => laden('training', T.standLesen, T.neuerStand);
 export const trainingSpeichern = (s) => speichern('training', s);
+
+// Einkaufsliste (Schlüssel „einkauf“, seit 1.4.0).
+export const einkaufLaden = () => laden('einkauf', E.datenLesen, E.neueDaten);
+export const einkaufSpeichern = (s) => speichern('einkauf', s);
 
 export async function meta(key, wert) {
   if (wert === undefined) return lesen('meta:' + key);
