@@ -100,8 +100,8 @@ def figur_svg(x, prim, sek, szene=None, last=None, geraet=None, ansicht="seite",
     return "\n".join(out)
 
 
-ARM = {"SCHULTERN", "BIZEPS", "TRIZEPS", "UNTERARME"}
-BEIN = {"GESAESS", "ADDUKTOREN", "BEINBEUGER", "QUADRIZEPS", "WADEN"}
+ARM = {"SCHULTER_VORN", "SCHULTER_SEITE", "SCHULTER_HINTEN", "BIZEPS", "BRACHIALIS", "TRIZEPS_LANG", "TRIZEPS_SEITE", "UNTERARM_BEUGER", "UNTERARM_STRECKER"}
+BEIN = {"GESAESS_GROSS", "GESAESS_MITTEL", "ADDUKTOREN", "BEINBEUGER", "QUADRIZEPS", "WADE_GASTRO", "WADE_SOLEUS"}
 
 
 def _gehoert(f, g, nr, ansicht):

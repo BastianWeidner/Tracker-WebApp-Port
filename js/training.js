@@ -2,7 +2,7 @@
 // und darüber ein Stapel von Ansichten (Training bearbeiten, Übung wählen, Übung, Import …).
 import { useState, useEffect, useMemo, useRef } from '../vendor/preact-htm.js';
 import * as T from './training-logik.js';
-import { Format, Rechnung, Belastung, Muskel, MUSKELN, Messart, MESSARTEN, SatzTyp, SATZTYPEN, FELDER, Import, Anleitung, anzahl, muskelText, unterstuetzbar } from './training-logik.js';
+import { Format, Rechnung, Belastung, Muskel, MUSKELN, Messart, MESSARTEN, SatzTyp, SATZTYPEN, FELDER, Import, Anleitung, anzahl, muskelText, unterstuetzbar, Teil, TEILE, Teile } from './training-logik.js';
 import { trainingLaden, trainingSpeichern, standLaden, meta, dauerhaftBitten } from './speicher.js';
 import { profilGesetzt } from './logik.js';
 import { sicherungSpeichern, dateiLesen, inhaltText, uebernehmen } from './sicherung.js';
@@ -812,21 +812,31 @@ function MuskelnTab({ vm }) {
   const saetze = useMemo(() => Belastung.saetze(s.workouts, uebungen, ui.jetzt - ui.zeitraum * TAG, ui.jetzt + 60_000), [s.workouts, ui.zeitraum, stunde, uebungen]);
   const erholung = useMemo(() => Belastung.erholung(s.workouts, uebungen, ui.jetzt), [s.workouts, Math.floor(ui.jetzt / 600_000), uebungen]);
   const niveau = useMemo(() => Belastung.kraftniveau(s.workouts, uebungen, koerper), [s.workouts, koerper, uebungen]);
+  const saetzeT = useMemo(() => Belastung.saetzeTeile(s.workouts, uebungen, ui.jetzt - ui.zeitraum * TAG, ui.jetzt + 60_000), [s.workouts, ui.zeitraum, stunde, uebungen]);
+  const erholungT = useMemo(() => Belastung.erholungTeile(s.workouts, uebungen, ui.jetzt), [s.workouts, Math.floor(ui.jetzt / 600_000), uebungen]);
+  const [offen, setOffen] = useState({});
   const f = ui.zeitraum / 7;
   const zielMin = e.wochenzielMin * f, zielMax = e.wochenzielMax * f;
   const intens = Object.fromEntries(MUSKELN.map((m) => [m,
     modus === 'BELASTUNG' ? Math.min(1, Math.max(0, saetze[m] / zielMax)) : modus === 'ERHOLUNG' ? 1 - erholung[m] : (niveau[m]?.punkte || 0) / 100]));
+  const intensT = Object.fromEntries(TEILE.map((t) => [t,
+    modus === 'BELASTUNG' ? Math.min(1, Math.max(0, saetzeT[t] / zielMax)) : modus === 'ERHOLUNG' ? 1 - erholungT[t] : (niveau[Teil[t].gruppe]?.punkte || 0) / 100]));
+  const wertT = (t) => {
+    const sz = saetzeT[t];
+    return modus === 'BELASTUNG' ? `${Format.zahl(sz, 1)} ${sz === 1 ? 'Satz' : 'Sätze'}${sz === 0 ? '' : sz < zielMin ? ' · wenig' : sz > zielMax ? ' · viel' : ' · im Ziel'}`
+      : `${Format.zahl(erholungT[t] * 100, 0)} % erholt`;
+  };
   const gesamt = Object.values(niveau).length ? Object.values(niveau).reduce((a, n) => a + n.punkte, 0) / Object.values(niveau).length : null;
   return html`
     <${Page} titel="Muskeln">
       <div class="chips">${Object.entries(MODI).map(([m, t]) => html`<${Chip} an=${modus === m} onClick=${() => setModus(m)}>${t}<//>`)}</div>
       ${modus === 'BELASTUNG' && html`<div class="chips">${[7, 14, 30].map((t) => html`<${Chip} an=${ui.zeitraum === t} onClick=${() => vm.zeitraum(t)}>${t} Tage<//>`)}</div>`}
       <${Klein} leise>${{
-        BELASTUNG: `Harte Sätze je Muskelgruppe in den letzten ${ui.zeitraum} Tagen. Hauptmuskel zählt ganz, mitarbeitende Muskeln halb. Ziel: ${Format.zahl(zielMin, 0)}–${Format.zahl(zielMax, 0)} Sätze.`,
-        ERHOLUNG: 'Wie frisch jede Muskelgruppe gerade ist. Geschätzt aus den Sätzen der letzten Tage; große Gruppen brauchen länger.',
+        BELASTUNG: `Harte Sätze je Muskel in den letzten ${ui.zeitraum} Tagen. Hauptmuskel zählt ganz, mitarbeitende Muskeln halb. Ziel: ${Format.zahl(zielMin, 0)}–${Format.zahl(zielMax, 0)} Sätze. Gruppe antippen für die Teilmuskeln (z. B. Brust oben, mitte, unten).`,
+        ERHOLUNG: 'Wie frisch jeder Muskel gerade ist. Geschätzt aus den Sätzen der letzten Tage; große Muskeln brauchen länger. Gruppe antippen für die Teilmuskeln.',
         NIVEAU: `Bestes geschätztes 1RM der Grundübungen im Verhältnis zu deinem Körpergewicht (${Format.kg(koerper)}). Grobe Einordnung nach gängigen Kraft-Tabellen für Männer.`,
       }[modus]}<//>
-      <${Koerperbild} intens=${intens} fehler=${modus === 'ERHOLUNG'} />
+      <${Koerperbild} intens=${intensT} fehler=${modus === 'ERHOLUNG'} />
       ${modus === 'NIVEAU' && html`<${Abschnitt} titel="Kraft-Score">
         ${gesamt == null ? html`<p>Noch keine Grundübung (Bankdrücken, Kniebeuge, Kreuzheben, Schulterdrücken, Rudern mit Langhantel, Klimmzug, Dips …) im Verlauf.</p>`
           : html`<p class="gross-wert">${Format.zahl(gesamt, 0)} von 100</p><${Klein}>Punkte im Schnitt über ${Object.keys(niveau).length} Muskelgruppen<//>`}
@@ -836,10 +846,18 @@ function MuskelnTab({ vm }) {
           const sz = saetze[m];
           const wert = modus === 'BELASTUNG' ? `${Format.zahl(sz, 1)} ${sz === 1 ? 'Satz' : 'Sätze'}${sz === 0 ? '' : sz < zielMin ? ' · wenig' : sz > zielMax ? ' · viel' : ' · im Ziel'}`
             : modus === 'ERHOLUNG' ? `${Format.zahl(erholung[m] * 100, 0)} % erholt` : niveau[m] ? `${Belastung.stufen[niveau[m].stufe]} · ${niveau[m].punkte}` : '–';
+          const teile = Teile.vonGruppe(m);
+          const auf = modus !== 'NIVEAU' && teile.length > 1 && offen[m];
           return html`<div class=${'balken' + (modus === 'ERHOLUNG' ? ' ueber' : '')}>
-            <div class="balken-zeile"><span>${Muskel[m].titel}<span class="klein leise fach">${Muskel[m].fach}</span></span><span>${wert}</span></div>
+            <button class="balken-zeile balken-knopf" disabled=${modus === 'NIVEAU' || teile.length < 2} aria-expanded=${modus !== 'NIVEAU' && teile.length > 1 ? !!auf : null}
+              onClick=${() => setOffen({ ...offen, [m]: !offen[m] })}>
+              <span>${Muskel[m].titel}${modus !== 'NIVEAU' && teile.length > 1 ? html` <span class="leise">${auf ? '▾' : '▸'}</span>` : ''}<span class="klein leise fach">${Muskel[m].fach}</span></span><span>${wert}</span></button>
             <div class="balken-bahn"><div class="balken-fuell" style=${{ width: intens[m] * 100 + '%' }}></div></div>
             ${modus === 'NIVEAU' && niveau[m] && html`<span class="klein leise">aus ${uebungen[niveau[m].uebungId]?.name || niveau[m].uebungId}: 1RM ≈ ${Format.kg(niveau[m].e1rm)}</span>`}
+            ${auf && html`<div class="teil-liste">${teile.map((t) => html`<div class="teil">
+              <div class="balken-zeile"><span>${Teil[t].titel}<span class="klein leise fach">${Teil[t].fach}</span></span><span>${wertT(t)}</span></div>
+              <div class="balken-bahn"><div class="balken-fuell" style=${{ width: intensT[t] * 100 + '%' }}></div></div>
+            </div>`)}</div>`}
           </div>`;
         })}
       </div>
@@ -847,28 +865,31 @@ function MuskelnTab({ vm }) {
 }
 
 // Strichfigur von vorn und hinten (selbst gezeichnet, wie in der Android-App). Pfade für die linke Hälfte einer Figur
-// im Raster 200 × 440, die rechte entsteht durch Spiegeln. Teile ohne Muskelgruppe sind nur Zeichnung.
+// im Raster 200 × 440, die rechte entsteht durch Spiegeln. Teile ohne Muskel sind nur Zeichnung.
+// Einträge: [Teilmuskel, Pfad, Höhenband [y0, y1] (optional, teilt einen Pfad, z. B. Brust oben/mitte/unten)].
 const FIGUR = {
   silhouette: 'M100,8 C88,8 81,17 81,31 C81,40 83,48 86,54 C88,58 91,61 93,63 L93,71 C86,74 78,77 70,80 C58,82 48,88 45,100 C42,110 42,124 44,138 C41,152 39,166 40,180 C37,196 34,214 33,232 C32,240 33,248 34,254 C31,260 29,270 30,280 C31,286 35,290 39,288 C43,286 45,280 44,272 C45,264 46,258 46,252 C50,236 54,216 57,198 C59,190 60,184 61,176 C62,168 63,156 64,146 C65,154 66,166 68,178 C70,192 71,202 70,212 C66,224 63,238 62,254 C59,282 60,314 64,344 C64,352 64,360 63,368 C61,384 61,402 64,418 C64,424 62,430 62,434 C64,438 72,440 84,438 C88,436 88,430 85,424 C86,412 88,396 89,380 C90,370 90,360 89,350 C92,330 96,300 99,268 L100,266',
   vorne: [
     [null, 'M93,63 C94,69 96,75 99,81 L96,82 C94,76 93,70 92,66 Z'],
-    ['TRAPEZ', 'M92,70 C86,75 79,78 71,80 C79,83 87,83 95,81 C94,77 93,74 92,70 Z'],
-    ['SCHULTERN', 'M71,82 C63,85 59,93 59,104 C60,111 63,113 66,109 C71,102 76,94 79,88 C77,84 74,82 71,82 Z'],
-    ['SCHULTERN', 'M66,82 C54,84 47,94 45,106 C44,118 46,130 50,138 C52,126 55,116 59,108 C57,96 59,87 66,82 Z'],
-    ['BRUST', 'M98,86 C90,84 82,86 79,90 C73,98 68,108 66,118 C66,126 70,132 78,134 C86,136 94,134 98,130 Z'],
+    ['TRAPEZ_OBEN', 'M92,70 C86,75 79,78 71,80 C79,83 87,83 95,81 C94,77 93,74 92,70 Z'],
+    ['SCHULTER_VORN', 'M71,82 C63,85 59,93 59,104 C60,111 63,113 66,109 C71,102 76,94 79,88 C77,84 74,82 71,82 Z'],
+    ['SCHULTER_SEITE', 'M66,82 C54,84 47,94 45,106 C44,118 46,130 50,138 C52,126 55,116 59,108 C57,96 59,87 66,82 Z'],
+    ['BRUST_OBEN', 'M98,86 C90,84 82,86 79,90 C73,98 68,108 66,118 C66,126 70,132 78,134 C86,136 94,134 98,130 Z', [0, 101]],
+    ['BRUST_MITTE', 'M98,86 C90,84 82,86 79,90 C73,98 68,108 66,118 C66,126 70,132 78,134 C86,136 94,134 98,130 Z', [101, 118]],
+    ['BRUST_UNTEN', 'M98,86 C90,84 82,86 79,90 C73,98 68,108 66,118 C66,126 70,132 78,134 C86,136 94,134 98,130 Z', [118, 440]],
     ['LAT', 'M66,124 C64,134 64,146 68,158 C70,150 71,142 71,134 C69,131 67,128 66,124 Z'],
-    ['BAUCH', 'M73,136 C76,137 79,138 81,140 L81,145 C78,143 75,142 72,142 Z'],
-    ['BAUCH', 'M72,146 C76,147 79,148 82,150 L82,155 C78,153 75,152 72,152 Z'],
-    ['BAUCH', 'M73,156 C77,157 80,158 83,160 L83,165 C79,163 76,162 74,162 Z'],
-    ['BAUCH', 'M87,138 C91,137 95,137 98,138 L98,154 C94,154 90,155 87,156 C86,150 86,144 87,138 Z'],
-    ['BAUCH', 'M87,159 C91,158 95,158 98,158 L98,175 C94,175 90,175 87,176 C86,170 86,164 87,159 Z'],
-    ['BAUCH', 'M87,179 C91,178 95,178 98,178 L98,196 C94,196 90,196 87,197 C86,191 86,185 87,179 Z'],
-    ['BAUCH', 'M87,200 C91,200 95,200 98,200 L98,238 C93,234 89,224 87,212 C86,208 86,204 87,200 Z'],
-    ['BAUCH', 'M84,168 C78,170 74,176 72,186 C72,198 76,210 84,222 C84,204 84,186 84,168 Z'],
+    ['BAUCH_SCHRAEG', 'M73,136 C76,137 79,138 81,140 L81,145 C78,143 75,142 72,142 Z'],
+    ['BAUCH_SCHRAEG', 'M72,146 C76,147 79,148 82,150 L82,155 C78,153 75,152 72,152 Z'],
+    ['BAUCH_SCHRAEG', 'M73,156 C77,157 80,158 83,160 L83,165 C79,163 76,162 74,162 Z'],
+    ['BAUCH_GERADE', 'M87,138 C91,137 95,137 98,138 L98,154 C94,154 90,155 87,156 C86,150 86,144 87,138 Z'],
+    ['BAUCH_GERADE', 'M87,159 C91,158 95,158 98,158 L98,175 C94,175 90,175 87,176 C86,170 86,164 87,159 Z'],
+    ['BAUCH_GERADE', 'M87,179 C91,178 95,178 98,178 L98,196 C94,196 90,196 87,197 C86,191 86,185 87,179 Z'],
+    ['BAUCH_GERADE', 'M87,200 C91,200 95,200 98,200 L98,238 C93,234 89,224 87,212 C86,208 86,204 87,200 Z'],
+    ['BAUCH_SCHRAEG', 'M84,168 C78,170 74,176 72,186 C72,198 76,210 84,222 C84,204 84,186 84,168 Z'],
     ['BIZEPS', 'M52,140 C46,150 44,164 46,178 C48,186 52,189 56,186 C60,174 61,160 60,148 C59,141 55,137 52,140 Z'],
-    ['BIZEPS', 'M61,152 C63,162 63,174 59,184 C61,186 63,184 64,180 C65,170 64,160 61,152 Z'],
-    ['UNTERARME', 'M44,188 C39,202 36,220 35,240 C35,248 37,252 40,252 C42,236 45,220 49,204 C50,196 48,189 44,188 Z'],
-    ['UNTERARME', 'M53,190 C51,202 48,222 44,250 C46,252 48,251 49,248 C53,232 57,214 58,202 C58,194 56,190 53,190 Z'],
+    ['BRACHIALIS', 'M61,152 C63,162 63,174 59,184 C61,186 63,184 64,180 C65,170 64,160 61,152 Z'],
+    ['UNTERARM_STRECKER', 'M44,188 C39,202 36,220 35,240 C35,248 37,252 40,252 C42,236 45,220 49,204 C50,196 48,189 44,188 Z'],
+    ['UNTERARM_BEUGER', 'M53,190 C51,202 48,222 44,250 C46,252 48,251 49,248 C53,232 57,214 58,202 C58,194 56,190 53,190 Z'],
     [null, 'M36,258 C33,264 32,272 33,280 C34,284 36,284 37,280 C37,272 38,264 36,258 Z'],
     ['QUADRIZEPS', 'M69,232 C62,254 61,284 63,314 C65,332 68,344 73,352 C74,326 74,296 73,270 C72,256 71,244 69,232 Z'],
     ['QUADRIZEPS', 'M75,240 C79,256 83,276 85,298 C86,316 84,334 80,346 C77,336 76,320 76,304 C75,284 75,262 75,240 Z'],
@@ -876,29 +897,32 @@ const FIGUR = {
     [null, 'M72,226 C77,246 84,268 88,290 C91,306 92,322 93,338 L95,336 C95,320 94,304 91,288 C87,266 80,244 75,224 Z'],
     ['ADDUKTOREN', 'M81,246 C85,262 90,278 93,298 C95,288 97,276 98,266 C98,256 92,248 81,246 Z'],
     [null, 'M74,352 C72,358 73,364 77,366 C81,366 83,360 82,354 C80,350 76,350 74,352 Z'],
-    ['WADEN', 'M66,366 C62,378 61,392 63,406 C65,410 68,410 69,404 C70,392 70,378 69,368 C68,364 67,364 66,366 Z'],
-    ['WADEN', 'M86,364 C89,374 90,386 88,398 C87,404 85,404 84,398 C83,388 83,376 84,366 C84,362 85,362 86,364 Z'],
-    ['WADEN', 'M73,368 C72,384 72,400 74,418 L78,418 C79,402 80,386 80,370 C78,366 75,366 73,368 Z'],
+    ['WADE_SOLEUS', 'M66,366 C62,378 61,392 63,406 C65,410 68,410 69,404 C70,392 70,378 69,368 C68,364 67,364 66,366 Z'],
+    ['WADE_GASTRO', 'M86,364 C89,374 90,386 88,398 C87,404 85,404 84,398 C83,388 83,376 84,366 C84,362 85,362 86,364 Z'],
+    ['WADE_SOLEUS', 'M73,368 C72,384 72,400 74,418 L78,418 C79,402 80,386 80,370 C78,366 75,366 73,368 Z'],
   ],
   hinten: [
-    ['TRAPEZ', 'M100,62 L94,64 L93,71 C86,75 77,79 70,82 C78,88 86,102 91,120 C94,134 97,148 100,162 Z'],
-    ['SCHULTERN', 'M66,84 C54,85 47,94 45,106 C44,118 46,130 50,138 C54,124 59,112 67,102 C72,96 72,88 66,84 Z'],
-    ['SCHULTERN', 'M73,96 C67,104 65,114 67,124 C74,126 82,122 87,114 C84,106 79,99 73,96 Z'],
+    ['TRAPEZ_OBEN', 'M100,62 L94,64 L93,71 C86,75 77,79 70,82 C78,88 86,102 91,120 C94,134 97,148 100,162 Z', [0, 95]],
+    ['TRAPEZ_MITTE', 'M100,62 L94,64 L93,71 C86,75 77,79 70,82 C78,88 86,102 91,120 C94,134 97,148 100,162 Z', [95, 440]],
+    ['SCHULTER_HINTEN', 'M66,84 C54,85 47,94 45,106 C44,118 46,130 50,138 C54,124 59,112 67,102 C72,96 72,88 66,84 Z'],
+    ['ROTATOREN', 'M73,96 C67,104 65,114 67,124 C74,126 82,122 87,114 C84,106 79,99 73,96 Z'],
     ['LAT', 'M66,126 C72,124 80,122 87,116 C88,120 87,124 85,127 C79,131 72,131 66,128 Z'],
     ['LAT', 'M67,130 C65,148 68,170 76,188 C82,202 90,210 97,214 L97,176 C93,160 90,146 88,126 C82,132 74,134 67,130 Z'],
-    ['BAUCH', 'M70,182 C70,196 71,206 72,214 C78,212 84,212 88,212 C82,204 76,194 70,182 Z'],
-    ['TRIZEPS', 'M56,138 C60,146 62,158 62,172 C61,182 58,188 54,187 C53,170 53,152 56,138 Z'],
-    ['TRIZEPS', 'M51,140 C45,150 43,164 45,178 C47,184 49,187 51,186 C50,170 51,152 54,138 C53,137 52,138 51,140 Z'],
-    ['UNTERARME', 'M44,188 C39,202 36,220 35,240 C35,248 37,252 40,252 C42,236 45,220 49,204 C50,196 48,189 44,188 Z'],
-    ['UNTERARME', 'M53,190 C51,202 48,222 44,250 C46,252 48,251 49,248 C53,232 57,214 58,202 C58,194 56,190 53,190 Z'],
+    ['BAUCH_SCHRAEG', 'M70,182 C70,196 71,206 72,214 C78,212 84,212 88,212 C82,204 76,194 70,182 Z'],
+    ['TRIZEPS_LANG', 'M56,138 C60,146 62,158 62,172 C61,182 58,188 54,187 C53,170 53,152 56,138 Z'],
+    ['TRIZEPS_SEITE', 'M51,140 C45,150 43,164 45,178 C47,184 49,187 51,186 C50,170 51,152 54,138 C53,137 52,138 51,140 Z'],
+    ['UNTERARM_STRECKER', 'M44,188 C39,202 36,220 35,240 C35,248 37,252 40,252 C42,236 45,220 49,204 C50,196 48,189 44,188 Z'],
+    ['UNTERARM_STRECKER', 'M53,190 C51,202 48,222 44,250 C46,252 48,251 49,248 C53,232 57,214 58,202 C58,194 56,190 53,190 Z'],
     ['UNTERER_RUECKEN', 'M93,176 C91,192 90,210 91,226 C93,234 96,238 99,238 L99,174 Z'],
-    ['GESAESS', 'M72,214 C70,222 70,232 72,240 C78,236 86,234 92,236 C90,226 86,218 80,214 C78,213 74,213 72,214 Z'],
-    ['GESAESS', 'M99,242 C88,239 75,242 69,254 C65,268 66,282 74,292 C82,298 92,298 99,294 Z'],
+    ['GESAESS_MITTEL', 'M72,214 C70,222 70,232 72,240 C78,236 86,234 92,236 C90,226 86,218 80,214 C78,213 74,213 72,214 Z'],
+    ['GESAESS_GROSS', 'M99,242 C88,239 75,242 69,254 C65,268 66,282 74,292 C82,298 92,298 99,294 Z'],
     ['BEINBEUGER', 'M68,298 C64,316 64,336 70,354 C74,358 78,358 80,354 C80,336 82,316 84,302 C78,300 72,298 68,298 Z'],
     ['BEINBEUGER', 'M87,302 C86,320 88,340 92,356 C95,358 97,355 97,350 C97,332 96,316 94,303 Z'],
     ['ADDUKTOREN', 'M96,300 C97,312 98,324 99,336 L99,298 Z'],
-    ['WADEN', 'M68,364 C62,378 62,396 67,410 C71,414 75,412 77,406 C79,392 79,378 77,366 C75,362 70,360 68,364 Z'],
-    ['WADEN', 'M81,364 C79,378 79,394 82,406 C86,412 90,412 91,404 C93,390 92,376 88,366 C86,362 83,362 81,364 Z'],
+    ['WADE_GASTRO', 'M68,364 C62,378 62,396 67,410 C71,414 75,412 77,406 C79,392 79,378 77,366 C75,362 70,360 68,364 Z', [0, 396]],
+    ['WADE_SOLEUS', 'M68,364 C62,378 62,396 67,410 C71,414 75,412 77,406 C79,392 79,378 77,366 C75,362 70,360 68,364 Z', [396, 440]],
+    ['WADE_GASTRO', 'M81,364 C79,378 79,394 82,406 C86,412 90,412 91,404 C93,390 92,376 88,366 C86,362 83,362 81,364 Z', [0, 396]],
+    ['WADE_SOLEUS', 'M81,364 C79,378 79,394 82,406 C86,412 90,412 91,404 C93,390 92,376 88,366 C86,362 83,362 81,364 Z', [396, 440]],
     [null, 'M74,416 C76,422 79,426 82,428 L85,424 C82,420 80,416 78,412 Z'],
   ],
 };
@@ -911,15 +935,17 @@ function Koerperbild({ intens, fehler }) {
   };
   const haelfte = (teile) => html`
     <path d=${FIGUR.silhouette} class="figur-umriss" />
-    ${teile.map(([m, d]) => html`<path d=${d} class="figur-muskel" style=${{ fill: farbe(m) }} />`)}`;
+    ${teile.map(([m, d, band]) => html`<path d=${d} class="figur-muskel" style=${{ fill: farbe(m) }} clip-path=${band ? `url(#kb-${band[0]}-${band[1]})` : null} />`)}`;
   const figur = (teile, x0) => html`
     <g transform=${`translate(${x0},0)`}>
       ${haelfte(teile)}
       <g transform="translate(200,0) scale(-1,1)">${haelfte(teile)}</g>
     </g>`;
-  const top = MUSKELN.filter((m) => intens[m] > 0).sort((a, b) => intens[b] - intens[a]).slice(0, 3).map((m) => Muskel[m].titel).join(', ');
+  const top = TEILE.filter((m) => intens[m] > 0).sort((a, b) => intens[b] - intens[a]).slice(0, 3).map((m) => Teil[m].titel).join(', ');
+  const baender = [...new Set([...FIGUR.vorne, ...FIGUR.hinten].filter((e) => e[2]).map((e) => e[2].join('-')))];
   return html`
-    <svg class="koerper" viewBox="0 0 440 444" role="img" aria-label=${top ? `Körperbild, am stärksten: ${top}` : 'Körperbild, keine Muskelgruppe belastet'}>
+    <svg class="koerper" viewBox="0 0 440 444" role="img" aria-label=${top ? `Körperbild, am stärksten: ${top}` : 'Körperbild, kein Muskel belastet'}>
+      <defs>${baender.map((b) => { const [y0, y1] = b.split('-').map(Number); return html`<clipPath id=${'kb-' + b} clipPathUnits="userSpaceOnUse"><rect x="-10" y=${y0} width="220" height=${y1 - y0} /></clipPath>`; })}</defs>
       ${figur(FIGUR.vorne, 13)}${figur(FIGUR.hinten, 227)}
     </svg>`;
 }
@@ -927,12 +953,13 @@ function Koerperbild({ intens, fehler }) {
 /** Haupt- und mitarbeitende Muskeln mit Fachbegriff (Übungsansicht). */
 function MuskelAngaben({ u }) {
   if (!u.primaer.length) return html`<${Klein}><span class="pflicht-text">${muskelText(u)}</span><//>`;
-  const sek = u.sekundaer.filter((m) => !u.primaer.includes(m));
+  const [prim, sek0] = Teile.von(u);
+  const sek = sek0.filter((m) => !prim.includes(m));
   const gruppe = (titel, kl, liste) => html`
     <div class="muskel-gruppe"><strong><i class=${'punkt ' + kl}></i>${titel}</strong>
-      ${liste.map((m) => html`<div class="muskel-eintrag"><span>${Muskel[m].titel}</span><span class="klein leise">${Muskel[m].fach}</span></div>`)}
+      ${liste.map((m) => html`<div class="muskel-eintrag"><span>${Teil[m].titel}</span><span class="klein leise">${Teil[m].fach}</span></div>`)}
     </div>`;
-  return html`<div class="muskel-angaben">${gruppe('Hauptmuskeln', 'p', u.primaer)}${sek.length > 0 && gruppe('Arbeiten mit', 's', sek)}</div>`;
+  return html`<div class="muskel-angaben">${gruppe('Hauptmuskeln', 'p', prim)}${sek.length > 0 && gruppe('Arbeiten mit', 's', sek)}</div>`;
 }
 
 // ---------- Daten ----------

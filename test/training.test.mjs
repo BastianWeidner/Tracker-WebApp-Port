@@ -323,3 +323,22 @@ ok('Schalter „mit Unterstützung“ nur bei passenden Übungen, Last wird abge
   assert.ok(T.unterstuetzbar(T.uebung({ id: 'eigen-x', name: 'Eigene', art: 'KOERPER' })));
   assert.equal(T.Rechnung.last({ gewicht: -20, wdh: 8 }, 'KOERPER', 86), 66);
 });
+
+ok('Teilmuskeln: jede Bewegung zugeordnet, Gruppen passen, eigene Übungen belasten alle Teile', () => {
+  for (const b of T.BEWEGUNGEN) {
+    const u = T.KATALOG.find((x) => x.id.split('-')[0] === b.key);
+    const [p] = T.Teile.von(u);
+    assert.ok(p.length, 'keine Teilmuskeln: ' + b.key);
+    assert.deepEqual([...new Set(p.map((t) => T.Teil[t].gruppe))], u.primaer, b.key);
+  }
+  assert.deepEqual(T.Teile.von(T.katalogNachId['schraegbank-lh'])[0], ['BRUST_OBEN']);
+  assert.deepEqual(T.Teile.von(T.katalogNachId['seitheben-kh'])[0], ['SCHULTER_SEITE']);
+  const eigen = T.uebung({ id: 'e:1', name: 'X', primaer: ['SCHULTERN'] });
+  assert.deepEqual(T.Teile.von(eigen)[0], ['SCHULTER_VORN', 'SCHULTER_SEITE', 'SCHULTER_HINTEN', 'ROTATOREN']);
+  // Belastung je Teil: 3 Sätze Schrägbank = 3 obere Brust, 1,5 vordere Schulter
+  const w = T.workout({ id: 'w', start: 1000, bloecke: [{ uebungId: 'schraegbank-lh', saetze: [{ gewicht: 60, wdh: 8 }, { gewicht: 60, wdh: 8 }, { gewicht: 60, wdh: 8 }] }] });
+  const st = T.Belastung.saetzeTeile([w], T.katalogNachId, 0, 2000);
+  assert.equal(st.BRUST_OBEN, 3); assert.equal(st.SCHULTER_VORN, 1.5); assert.equal(st.BRUST_UNTEN, 0);
+  const er = T.Belastung.erholungTeile([w], T.katalogNachId, 1000);
+  assert.ok(er.BRUST_OBEN < 1 && er.BRUST_UNTEN === 1);
+});

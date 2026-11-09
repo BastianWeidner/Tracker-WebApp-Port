@@ -4,6 +4,9 @@
 
 // ---------- Modell ----------
 
+import { Teil, TEILE, TEIL_ZUORDNUNG } from './muskelteile.js';
+export { Teil, TEILE };
+
 /** Muskelgruppen. [vorne]: auf der Vorderansicht. [erholungStunden]: bis eine harte Einheit abgeklungen ist. [fach]: Fachbegriff. */
 export const Muskel = {
   BRUST: { titel: 'Brust', vorne: true, erholungStunden: 60, fach: 'M. pectoralis major' },
@@ -214,13 +217,40 @@ export const BEWEGUNGEN = [
   B('schwimmen', 'Schwimmen', ['swimming', 'swim', 'schwimmen', 'kraul'], [LAT, SCHULTERN], [TRIZEPS, BRUST, BAUCH, QUADRIZEPS], [null], 'CARDIO'),
 ];
 
+/** Teilmuskeln (Brust oben/mitte/unten, Schulter vorn/seitlich/hinten …) einer Übung. */
+export const Teile = {
+  /** Gruppen zu Teilmuskeln: { primaer, sekundaer } ohne Doppelte, mitarbeitende ohne die Hauptgruppen. */
+  gruppen(p, s) {
+    const primaer = [...new Set(p.map((t) => Teil[t].gruppe))];
+    return { primaer, sekundaer: [...new Set(s.map((t) => Teil[t].gruppe))].filter((m) => !primaer.includes(m)) };
+  },
+  /** Alle Teilmuskeln einer Gruppe. */
+  vonGruppe: (m) => TEILE.filter((t) => Teil[t].gruppe === m),
+  /**
+   * [Hauptmuskeln, mitarbeitende] als Teilmuskeln. Katalogübungen nach Tabelle; eigene Übungen (oder geänderte Gruppen)
+   * belasten alle Teilmuskeln ihrer Gruppen.
+   */
+  von(u) {
+    if (!u) return [[], []];
+    const key = String(u.id || '').startsWith('e:') ? null : String(u.id || '').split('-')[0];
+    const z = key && TEIL_ZUORDNUNG[key];
+    if (z) {
+      const g = Teile.gruppen(...z);
+      if (g.primaer.join() === u.primaer.join()) return z;
+    }
+    const p = u.primaer.flatMap(Teile.vonGruppe);
+    return [p, u.sekundaer.filter((m) => !u.primaer.includes(m)).flatMap(Teile.vonGruppe)];
+  },
+};
+
 const bewegungsId = (b, g) => (g == null ? b.key : `${b.key}-${Geraet[g].kurz}`);
 const bewegungsUebung = (b, g) => uebung({
   id: bewegungsId(b, g),
   name: g == null ? b.name : `${b.name} (${Geraet[g].titel})`,
   // Maschinen mit eigenem Gewichtsblock (Trizeps-Dips sitzend, Bauchmaschine): kg sind die Last, kein Zusatz zum Körpergewicht
   art: g === 'KOERPER' && b.art === 'GEWICHT' ? 'KOERPER' : g === 'MASCHINE' && b.art === 'KOERPER' && MASCHINE_MIT_BLOCK.has(b.key) ? 'GEWICHT' : b.art,
-  primaer: b.primaer, sekundaer: b.sekundaer,
+  // Muskelgruppen folgen aus den Teilmuskeln (muskelteile.js), sonst aus der Bewegung
+  ...(TEIL_ZUORDNUNG[b.key] ? Teile.gruppen(...TEIL_ZUORDNUNG[b.key]) : { primaer: b.primaer, sekundaer: b.sekundaer }),
 });
 
 export const KATALOG = BEWEGUNGEN.flatMap((b) => b.geraete.map((g) => bewegungsUebung(b, g)));
@@ -508,6 +538,36 @@ export const Belastung = {
       for (const m of u.primaer) f(w, m, n);
       for (const m of u.sekundaer.filter((x) => !u.primaer.includes(x))) f(w, m, n * Belastung.ANTEIL_SEKUNDAER);
     }
+  },
+
+  jeSatzTeil(workouts, uebungen, f) {
+    for (const w of workouts) for (const b of w.bloecke) {
+      const u = uebungen[b.uebungId];
+      if (!u) continue;
+      const n = b.saetze.filter(Rechnung.zaehlt).length;
+      if (!n) continue;
+      const [p, s] = Teile.von(u);
+      for (const t of p) f(w, t, n);
+      for (const t of s.filter((x) => !p.includes(x))) f(w, t, n * Belastung.ANTEIL_SEKUNDAER);
+    }
+  },
+
+  /** Arbeitssätze je Teilmuskel für Trainings mit Start in [von, bis). */
+  saetzeTeile(workouts, uebungen, von, bis) {
+    const m = Object.fromEntries(TEILE.map((x) => [x, 0]));
+    Belastung.jeSatzTeil(workouts.filter((w) => w.start >= von && w.start < bis), uebungen, (_, t, n) => { m[t] += n; });
+    return m;
+  },
+
+  /** Erholung je Teilmuskel: 1 = erholt, 0 = gerade voll belastet. */
+  erholungTeile(workouts, uebungen, jetzt) {
+    const last = Object.fromEntries(TEILE.map((x) => [x, 0]));
+    const relevant = workouts.filter((w) => w.start <= jetzt && jetzt - w.start < 7 * 24 * 3_600_000);
+    Belastung.jeSatzTeil(relevant, uebungen, (w, t, n) => {
+      const stunden = Math.max(0, jetzt - (w.start + w.dauerSek * 1000)) / 3_600_000;
+      last[t] += n * Math.exp(-stunden / (Teil[t].erholungStunden / 3));
+    });
+    return Object.fromEntries(TEILE.map((t) => [t, 1 - Math.min(1, Math.max(0, last[t] / Belastung.VOLL))]));
   },
 
   /** Arbeitssätze je Muskelgruppe für Trainings mit Start in [von, bis). */
