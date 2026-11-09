@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { gelenke, muskelflaechen, musterFuer, figurSvg, haltung, pendel, fortschritt } from '../js/figuren.js';
 import DATEN from '../js/figuren-daten.js';
-import { KATALOG, uebung } from '../js/training-logik.js';
+import { KATALOG, uebung, Teile } from '../js/training-logik.js';
 
 const ref = JSON.parse(readFileSync(new URL('./daten/figuren-referenz.json', import.meta.url)));
 const nah = (a, b, text) => assert.ok(Math.abs(a - b) < 0.01, `${text}: ${a} ≠ ${b}`);
@@ -25,7 +25,8 @@ for (const u of KATALOG) {
   const m = musterFuer(u);
   assert.ok(m && m.muster && m.muster.bilder.length >= 5, `kein Bild für ${u.id}`);
   assert.ok(!m.muster.id.startsWith('stehen'), u.id);
-  const svg = figurSvg(m.muster, m.geraet, u.primaer, u.sekundaer, 0.5);
+  const [tp, ts] = Teile.von(u);
+  const svg = figurSvg(m.muster, m.geraet, tp, ts, 0.5);
   assert.ok(!svg.includes('NaN') && !svg.includes('undefined'), `Zeichnung kaputt: ${u.id}`);
   if (u.primaer.length) assert.ok(svg.includes('fm-p'), `Hauptmuskel nicht markiert: ${u.id}`);
 }

@@ -2,7 +2,7 @@
 // Die Haltungen stehen in figuren-daten.js (erzeugt aus werkzeuge/figuren/, nicht von Hand ändern).
 import { html, useEffect, useRef } from '../vendor/preact-htm.js';
 import DATEN from './figuren-daten.js';
-import { Geraet, finde, zerlege } from './training-logik.js';
+import { Geraet, finde, zerlege, Teile, Teil } from './training-logik.js';
 
 const L_RUMPF = 30, L_OA = 16, L_UA = 14, L_HAND = 3, L_OS = 23, L_US = 22, L_FUSS = 8, L_FERSE = 2.5;
 const SCHULTER_BREIT = 10, HUEFTE_BREIT = 5.5;
@@ -72,24 +72,82 @@ export function gelenke(ansicht, h) {
 // (muskel, segment, u0, u1, v, halbbreite) wie modell.py
 const MUSKELN = {
   seite: [
-    ['UNTERER_RUECKEN', 'rumpf', 0.05, 0.42, -4.4, 2.0], ['LAT', 'rumpf', 0.38, 0.86, -4.7, 2.6], ['TRAPEZ', 'rumpf', 0.80, 1.10, -3.6, 2.3],
-    ['BAUCH', 'rumpf', 0.10, 0.58, 4.3, 2.2], ['BRUST', 'rumpf', 0.58, 0.93, 4.7, 2.9], ['GESAESS', 'os', -0.12, 0.34, -3.4, 3.4],
-    ['ADDUKTOREN', 'os', 0.10, 0.55, 0.2, 1.6], ['BEINBEUGER', 'os', 0.32, 0.92, -2.4, 2.3], ['QUADRIZEPS', 'os', 0.10, 0.92, 2.3, 2.7],
-    ['WADEN', 'us', 0.06, 0.56, -1.7, 2.1], ['TRIZEPS', 'oa', 0.28, 0.92, -1.5, 1.8], ['BIZEPS', 'oa', 0.34, 0.90, 1.5, 1.8],
-    ['SCHULTERN', 'oa', -0.10, 0.40, 0.0, 3.5], ['UNTERARME', 'ua', 0.04, 0.66, 0.0, 2.0],
+    ['UNTERER_RUECKEN', 'rumpf', 0.05, 0.42, -4.4, 2.0],
+    ['LAT', 'rumpf', 0.38, 0.86, -4.7, 2.6],
+    ['TRAPEZ_MITTE', 'rumpf', 0.70, 0.92, -3.9, 2.0],
+    ['TRAPEZ_OBEN', 'rumpf', 0.90, 1.10, -3.2, 2.0],
+    ['ROTATOREN', 'rumpf', 0.74, 0.90, -2.2, 1.3],
+    ['BAUCH_SCHRAEG', 'rumpf', 0.12, 0.55, 2.4, 1.8],
+    ['BAUCH_GERADE', 'rumpf', 0.10, 0.58, 4.6, 1.5],
+    ['BRUST_UNTEN', 'rumpf', 0.58, 0.72, 4.9, 2.6],
+    ['BRUST_MITTE', 'rumpf', 0.70, 0.84, 5.0, 2.8],
+    ['BRUST_OBEN', 'rumpf', 0.82, 0.95, 4.5, 2.4],
+    ['GESAESS_MITTEL', 'os', -0.22, 0.08, -1.2, 2.6],
+    ['GESAESS_GROSS', 'os', -0.12, 0.34, -3.4, 3.4],
+    ['ADDUKTOREN', 'os', 0.10, 0.55, 0.2, 1.6],
+    ['BEINBEUGER', 'os', 0.32, 0.92, -2.4, 2.3],
+    ['QUADRIZEPS', 'os', 0.10, 0.92, 2.3, 2.7],
+    ['WADE_GASTRO', 'us', 0.06, 0.46, -1.8, 2.1],
+    ['WADE_SOLEUS', 'us', 0.40, 0.72, -1.3, 1.5],
+    ['TRIZEPS_SEITE', 'oa', 0.28, 0.80, -1.2, 1.5],
+    ['TRIZEPS_LANG', 'oa', 0.40, 0.92, -1.9, 1.1],
+    ['BIZEPS', 'oa', 0.34, 0.88, 1.6, 1.7],
+    ['BRACHIALIS', 'oa', 0.62, 0.94, 0.6, 1.0],
+    ['SCHULTER_SEITE', 'oa', -0.10, 0.36, 0.0, 2.6],
+    ['SCHULTER_VORN', 'oa', -0.08, 0.40, 1.7, 1.9],
+    ['SCHULTER_HINTEN', 'oa', -0.08, 0.40, -1.7, 1.9],
+    ['UNTERARM_BEUGER', 'ua', 0.04, 0.66, 0.8, 1.3],
+    ['UNTERARM_STRECKER', 'ua', 0.04, 0.66, -0.8, 1.3],
   ],
   vorn: [
-    ['BAUCH', 'rumpf', 0.10, 0.58, 0.0, 3.6], ['BRUST', 'rumpf', 0.60, 0.90, 4.6, 3.7], ['BRUST', 'rumpf', 0.60, 0.90, -4.6, 3.7],
-    ['TRAPEZ', 'rumpf', 0.93, 1.07, 5.4, 1.6], ['TRAPEZ', 'rumpf', 0.93, 1.07, -5.4, 1.6],
-    ['GESAESS', 'rumpf', -0.04, 0.14, 7.0, 1.7], ['GESAESS', 'rumpf', -0.04, 0.14, -7.0, 1.7], ['QUADRIZEPS', 'os', 0.12, 0.92, 0.5, 3.1],
-    ['ADDUKTOREN', 'os', 0.06, 0.52, -2.8, 1.5], ['WADEN', 'us', 0.08, 0.50, -1.6, 1.4], ['WADEN', 'us', 0.08, 0.50, 1.6, 1.4],
-    ['BIZEPS', 'oa', 0.34, 0.90, 0.0, 2.0], ['SCHULTERN', 'oa', -0.10, 0.38, 0.0, 3.5], ['UNTERARME', 'ua', 0.04, 0.66, 0.0, 2.0],
+    ['LAT', 'rumpf', 0.44, 0.74, 6.6, 1.4],
+    ['LAT', 'rumpf', 0.44, 0.74, -6.6, 1.4],
+    ['ROTATOREN', 'rumpf', 0.84, 0.94, 6.8, 1.2],
+    ['ROTATOREN', 'rumpf', 0.84, 0.94, -6.8, 1.2],
+    ['BAUCH_SCHRAEG', 'rumpf', 0.12, 0.55, 5.4, 1.7],
+    ['BAUCH_SCHRAEG', 'rumpf', 0.12, 0.55, -5.4, 1.7],
+    ['BAUCH_GERADE', 'rumpf', 0.10, 0.58, 0.0, 2.6],
+    ['BRUST_UNTEN', 'rumpf', 0.60, 0.72, 4.6, 3.4],
+    ['BRUST_UNTEN', 'rumpf', 0.60, 0.72, -4.6, 3.4],
+    ['BRUST_MITTE', 'rumpf', 0.70, 0.82, 4.6, 3.7],
+    ['BRUST_MITTE', 'rumpf', 0.70, 0.82, -4.6, 3.7],
+    ['BRUST_OBEN', 'rumpf', 0.80, 0.91, 4.4, 3.2],
+    ['BRUST_OBEN', 'rumpf', 0.80, 0.91, -4.4, 3.2],
+    ['TRAPEZ_OBEN', 'rumpf', 0.93, 1.07, 5.4, 1.6],
+    ['TRAPEZ_OBEN', 'rumpf', 0.93, 1.07, -5.4, 1.6],
+    ['GESAESS_MITTEL', 'rumpf', -0.04, 0.14, 7.0, 1.7],
+    ['GESAESS_MITTEL', 'rumpf', -0.04, 0.14, -7.0, 1.7],
+    ['QUADRIZEPS', 'os', 0.12, 0.92, 0.5, 3.1],
+    ['ADDUKTOREN', 'os', 0.06, 0.52, -2.8, 1.5],
+    ['WADE_GASTRO', 'us', 0.08, 0.50, -1.6, 1.4],
+    ['WADE_SOLEUS', 'us', 0.20, 0.62, 1.6, 1.3],
+    ['BIZEPS', 'oa', 0.34, 0.90, 0.0, 2.0],
+    ['BRACHIALIS', 'oa', 0.60, 0.92, 1.6, 1.0],
+    ['SCHULTER_SEITE', 'oa', -0.10, 0.36, 1.5, 2.4],
+    ['SCHULTER_VORN', 'oa', -0.10, 0.38, -0.6, 2.6],
+    ['UNTERARM_BEUGER', 'ua', 0.04, 0.66, -0.5, 1.5],
+    ['UNTERARM_STRECKER', 'ua', 0.04, 0.60, 1.3, 1.0],
   ],
   hinten: [
-    ['UNTERER_RUECKEN', 'rumpf', 0.04, 0.36, 2.2, 1.8], ['UNTERER_RUECKEN', 'rumpf', 0.04, 0.36, -2.2, 1.8], ['LAT', 'rumpf', 0.32, 0.82, 5.0, 3.0],
-    ['LAT', 'rumpf', 0.32, 0.82, -5.0, 3.0], ['TRAPEZ', 'rumpf', 0.62, 1.07, 0.0, 4.3], ['GESAESS', 'os', -0.16, 0.30, -0.6, 4.2],
-    ['BEINBEUGER', 'os', 0.30, 0.92, 0.0, 2.8], ['WADEN', 'us', 0.06, 0.56, 0.0, 2.6], ['TRIZEPS', 'oa', 0.28, 0.92, 0.0, 2.0],
-    ['SCHULTERN', 'oa', -0.10, 0.38, 0.0, 3.5], ['UNTERARME', 'ua', 0.04, 0.66, 0.0, 2.0],
+    ['UNTERER_RUECKEN', 'rumpf', 0.04, 0.36, 2.2, 1.8],
+    ['UNTERER_RUECKEN', 'rumpf', 0.04, 0.36, -2.2, 1.8],
+    ['LAT', 'rumpf', 0.32, 0.82, 5.0, 3.0],
+    ['LAT', 'rumpf', 0.32, 0.82, -5.0, 3.0],
+    ['TRAPEZ_MITTE', 'rumpf', 0.60, 0.90, 0.0, 3.0],
+    ['TRAPEZ_OBEN', 'rumpf', 0.88, 1.07, 0.0, 4.3],
+    ['ROTATOREN', 'rumpf', 0.70, 0.86, 4.4, 1.6],
+    ['ROTATOREN', 'rumpf', 0.70, 0.86, -4.4, 1.6],
+    ['GESAESS_MITTEL', 'rumpf', -0.02, 0.14, 6.6, 1.8],
+    ['GESAESS_MITTEL', 'rumpf', -0.02, 0.14, -6.6, 1.8],
+    ['GESAESS_GROSS', 'os', -0.16, 0.30, -0.6, 4.2],
+    ['BEINBEUGER', 'os', 0.30, 0.92, 0.0, 2.8],
+    ['WADE_GASTRO', 'us', 0.06, 0.48, 0.0, 2.6],
+    ['WADE_SOLEUS', 'us', 0.44, 0.72, 0.0, 1.6],
+    ['TRIZEPS_SEITE', 'oa', 0.28, 0.86, 0.9, 1.3],
+    ['TRIZEPS_LANG', 'oa', 0.34, 0.92, -0.9, 1.3],
+    ['SCHULTER_SEITE', 'oa', -0.10, 0.34, 1.5, 2.4],
+    ['SCHULTER_HINTEN', 'oa', -0.10, 0.38, -0.6, 2.6],
+    ['UNTERARM_STRECKER', 'ua', 0.04, 0.66, 0.0, 2.0],
   ],
 };
 const SEG = { oa: ['S', 'E'], ua: ['E', 'W'], os: ['HU', 'K'], us: ['K', 'A'] };
@@ -270,7 +328,7 @@ function lastSvg(last, geraet, g, ansicht, x) {
   return [hinten, vorn];
 }
 
-/** SVG-Inhalt (ohne <svg>) der Figur zum Fortschritt x. prim/sek: Muskel-Schlüssel. */
+/** SVG-Inhalt (ohne <svg>) der Figur zum Fortschritt x. prim/sek: Teilmuskeln (muskelteile.js). */
 export function figurSvg(muster, geraet, prim, sek, x) {
   const ansicht = muster.ansicht;
   const g = gelenke(ansicht, haltung(muster, x));
@@ -300,8 +358,9 @@ export function figurSvg(muster, geraet, prim, sek, x) {
   return out.join('');
 }
 
-const ARM = new Set(['SCHULTERN', 'BIZEPS', 'TRIZEPS', 'UNTERARME']);
-const BEIN = new Set(['GESAESS', 'ADDUKTOREN', 'BEINBEUGER', 'QUADRIZEPS', 'WADEN']);
+// Teilmuskeln an Armen und Beinen (werden mit dem jeweiligen Glied gezeichnet)
+const ARM = new Set(['SCHULTER_VORN', 'SCHULTER_SEITE', 'SCHULTER_HINTEN', 'BIZEPS', 'BRACHIALIS', 'TRIZEPS_LANG', 'TRIZEPS_SEITE', 'UNTERARM_BEUGER', 'UNTERARM_STRECKER']);
+const BEIN = new Set(['GESAESS_GROSS', 'GESAESS_MITTEL', 'ADDUKTOREN', 'BEINBEUGER', 'QUADRIZEPS', 'WADE_GASTRO', 'WADE_SOLEUS']);
 
 const rahmenCache = new Map();
 /** Ausschnitt um die Figur über alle Schlüsselbilder (für kleine Bilder): [x, y, breite, höhe], quadratisch. */
@@ -329,7 +388,8 @@ export const fortschritt = (muster, sek) => (muster.zyklisch ? ((sek / (2 * must
 export function FigurBild({ uebung, animiert = false, klein = false }) {
   const ref = useRef();
   const info = musterFuer(uebung);
-  const prim = uebung?.primaer || [], sek = (uebung?.sekundaer || []).filter((m) => !prim.includes(m));
+  const [prim, sek0] = uebung ? Teile.von(uebung) : [[], []];
+  const sek = sek0.filter((m) => !prim.includes(m));
   useEffect(() => {
     const el = ref.current;
     if (!el || !info) return undefined;
@@ -347,7 +407,7 @@ export function FigurBild({ uebung, animiert = false, klein = false }) {
     return () => { cancelAnimationFrame(id); beob?.disconnect(); };
   }, [info?.muster, info?.geraet, animiert, prim.join(), sek.join()]);
   if (!info) return null;
-  const titel = `Übungsbild ${uebung.name}` + (prim.length ? `, markiert: ${prim.map((m) => m.toLowerCase()).join(', ')}` : '');
+  const titel = `Übungsbild ${uebung.name}` + (prim.length ? `, markiert: ${prim.map((m) => Teil[m].titel).join(', ')}` : '');
   const vb = klein ? rahmen(info.muster).join(' ') : '0 -6 120 114';
   return html`<svg ref=${ref} class=${'figur' + (klein ? ' figur-klein' : '')} viewBox=${vb} role="img" aria-label=${titel}></svg>`;
 }

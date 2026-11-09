@@ -11,7 +11,7 @@ import * as Scan from './scan.js';
 import { profilKurz } from './profil.js';
 import { html, Page, Abschnitt, Hinweis, Klein, Leer, Knopf, Balken, Eingabe, ZahlFeld, Auswahl, Schalter, Zaehler, Chips, Chip, Dialog } from './teile.js';
 
-const VERSION = '1.3.5';
+const VERSION = '1.4.1';
 
 // ---------- Zeit ----------
 
