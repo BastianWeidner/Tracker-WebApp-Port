@@ -114,6 +114,9 @@ const [L_, K_, C_, M_, S_, E_, KB_, B_] = ['LH', 'KH', 'KABEL', 'MASCHINE', 'SMI
 /** Bewegung: [key, name, en, primaer, sekundaer, geraete (null = ohne Gerät), art]. */
 const B = (key, name, en, primaer, sekundaer = [], geraete = [null], art = 'GEWICHT') => ({ key, name, en, primaer, sekundaer, geraete, art });
 
+/** Bewegungen, deren Maschinen-Variante mit dem Gewichtsblock arbeitet (nicht unterstützend wie Dips- oder Klimmzug-Maschine). */
+const MASCHINE_MIT_BLOCK = new Set(['trizepsdips', 'crunch']);
+
 export const BEWEGUNGEN = [
   // Brust
   B('bankdruecken', 'Bankdrücken', ['bench press', 'flat bench press', 'chest press flat'], [BRUST], [TRIZEPS, SCHULTERN], [L_, K_, S_, M_]),
@@ -214,7 +217,8 @@ const bewegungsId = (b, g) => (g == null ? b.key : `${b.key}-${Geraet[g].kurz}`)
 const bewegungsUebung = (b, g) => uebung({
   id: bewegungsId(b, g),
   name: g == null ? b.name : `${b.name} (${Geraet[g].titel})`,
-  art: g === 'KOERPER' && b.art === 'GEWICHT' ? 'KOERPER' : b.art,
+  // Maschinen mit eigenem Gewichtsblock (Trizeps-Dips sitzend, Bauchmaschine): kg sind die Last, kein Zusatz zum Körpergewicht
+  art: g === 'KOERPER' && b.art === 'GEWICHT' ? 'KOERPER' : g === 'MASCHINE' && b.art === 'KOERPER' && MASCHINE_MIT_BLOCK.has(b.key) ? 'GEWICHT' : b.art,
   primaer: b.primaer, sekundaer: b.sekundaer,
 });
 

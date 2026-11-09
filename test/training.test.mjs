@@ -305,3 +305,11 @@ ok('Verbrauch (Netto-MET)', () => {
   // 10 km/h → MET 10: (10 − 1) × 80 × 0,5 = 360
   assert.equal(Verbrauch.kcal(lauf, katalogNachId, 80), 360);
 });
+
+ok('Maschinen mit Gewichtsblock zählen kein Körpergewicht', () => {
+  const art = (id) => T.KATALOG.find((u) => u.id === id).art;
+  assert.equal(art('trizepsdips-ma'), 'GEWICHT');
+  assert.equal(art('crunch-ma'), 'GEWICHT');
+  assert.equal(art('trizepsdips'), 'KOERPER');
+  assert.equal(art('dips-ma'), 'KOERPER');
+});
