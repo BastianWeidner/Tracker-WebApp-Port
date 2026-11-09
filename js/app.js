@@ -11,7 +11,7 @@ import * as Scan from './scan.js';
 import { profilKurz } from './profil.js';
 import { html, Page, Abschnitt, Hinweis, Klein, Leer, Knopf, Balken, Eingabe, ZahlFeld, Auswahl, Schalter, Zaehler, Chips, Chip, Dialog } from './teile.js';
 
-const VERSION = '1.3.4';
+const VERSION = '1.3.5';
 
 // ---------- Zeit ----------
 
@@ -1259,6 +1259,7 @@ function ProfilTab({ vm }) {
         <${Klein}>Gemeinsames Profil für Training und Food & Boost.<//>
         <${Knopf} art="umriss" onClick=${vm.profilOeffnen}>👤 Profil ändern<//>
       <//>
+      <${Hinweis} art="info">🔔 Erinnerungen an den Einnahmeplan per Benachrichtigung gibt es leider nur in der Android-App. Im Browser auf dem iPhone geht das nicht ohne Server, darum hier bitte selbst unter „Boost“ abhaken.<//>
       <${Abschnitt} titel="Sicherung">
         <${Klein}>Alles (Einträge, Produkte, Einstellungen und die Trainings) als eine Datei, z. B. in „Dateien“ oder iCloud. Damit geht es auch auf ein neues Handy. Sicherungen der Android-App lassen sich laden.<//>
         <${Klein}>${t ? `Letzte Sicherung: ${new Date(t).toLocaleDateString('de-DE')}.` : 'Noch keine Sicherung gemacht.'} Safari löscht Daten von Web-Apps, die einige Wochen nicht geöffnet wurden. Darum ab und zu sichern.<//>
