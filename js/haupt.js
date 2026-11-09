@@ -2,18 +2,21 @@
 import { render, useState, useEffect } from '../vendor/preact-htm.js';
 import { Ziele, Format as FFormat } from './logik.js';
 import * as T from './training-logik.js';
-import { standLaden, trainingLaden, meta } from './speicher.js';
+import { standLaden, trainingLaden, einkaufLaden, meta } from './speicher.js';
 import { html, Page, Klein } from './teile.js';
 import { FoodApp, InstallHinweis } from './app.js';
 import { TrainingApp } from './training.js';
+import { EinkaufApp } from './einkauf.js';
+import * as E from './einkauf-logik.js';
 import { ProfilSeite, profilAbgleichen, profilKurz } from './profil.js';
 import { profilGesetzt } from './logik.js';
 
-const VERSION = '1.3.5';
+const VERSION = '1.4.0';
 
 const BEREICHE = {
   training: { titel: 'Training', symbol: '🏋️', farbe: '#C2185B', text: 'Workouts mit Sätzen und Gewichten, Fortschritt je Übung, Belastung je Muskelgruppe, Import aus Stronger.' },
   food: { titel: 'Food & Boost', symbol: '🍽️', farbe: '#E53935', text: 'Kalorien, Makros und Mikros, Supplements mit Einnahmeplan, Koffein und Alkohol.' },
+  einkauf: { titel: 'Einkaufsliste', symbol: '🛒', farbe: '#43A047', text: 'Liste zum Abhaken. Was du in Food & Boost oft einträgst, kommt als Vorschlag in üblichen Gebinden (Palette, Kasten, 6er-Pack).' },
 };
 
 const istIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -52,6 +55,7 @@ function Haupt() {
   if (!bereit) return html`<div class="laden">Lädt …</div>`;
   if (profil) return html`<${ProfilSeite} schliessen=${() => history.back()} />`;
   if (bereich === 'training') return html`<${TrainingApp} zurUebersicht=${zurUebersicht} profilOeffnen=${profilOeffnen} />`;
+  if (bereich === 'einkauf') return html`<${EinkaufApp} zurUebersicht=${zurUebersicht} />`;
   if (bereich === 'food') return html`<${FoodApp} zurUebersicht=${zurUebersicht} profilOeffnen=${profilOeffnen} />`;
   return html`<${Uebersicht} oeffnen=${oeffnen} profilOeffnen=${profilOeffnen} />`;
 }
@@ -60,7 +64,7 @@ function Uebersicht({ oeffnen, profilOeffnen }) {
   const [info, setInfo] = useState({});
   useEffect(() => {
     (async () => {
-      const [f, t, letzte] = await Promise.all([standLaden(), trainingLaden(), meta('letzteSicherung')]);
+      const [f, t, ek, letzte] = await Promise.all([standLaden(), trainingLaden(), einkaufLaden(), meta('letzteSicherung')]);
       const jetzt = Date.now();
       const heute = new Date(jetzt).setHours(0, 0, 0, 0);
       const morgen = new Date(heute + 36 * 3_600_000).setHours(0, 0, 0, 0);
@@ -76,7 +80,10 @@ function Uebersicht({ oeffnen, profilOeffnen }) {
         const ziel = Ziele.berechnen(f.koerper, f.einstellungen, new Date().getFullYear(), buch.reduce((a, w) => a + w.kcal, 0)).kcal;
         food = `Heute ${FFormat.zahl(Ziele.summe(f, heute, morgen).kcal, 0)} von ${FFormat.zahl(ziel, 0)} kcal`;
       }
-      setInfo({ training, food, laeuft: !!t.laufend, letzte, leer: !t.workouts.length && !f.eintraege.length, profil: profilGesetzt(f) ? profilKurz(f.koerper) : null });
+      const nOffen = E.offen(ek).length;
+      const nVorschlag = E.Nachkauf.vorschlaege(ek, E.verbrauchAus(f, jetzt), jetzt).length;
+      const einkauf = [nOffen ? T.anzahl(nOffen, 'Eintrag offen', 'Einträge offen') : 'Liste leer', nVorschlag ? T.anzahl(nVorschlag, 'Vorschlag', 'Vorschläge') : ''].filter(Boolean).join(' · ');
+      setInfo({ training, food, einkauf, laeuft: !!t.laufend, letzte, leer: !t.workouts.length && !f.eintraege.length, profil: profilGesetzt(f) ? profilKurz(f.koerper) : null });
     })().catch((e) => console.warn(e));
   }, []);
 
@@ -97,7 +104,7 @@ function Uebersicht({ oeffnen, profilOeffnen }) {
           <span class="zeile-mitte"><strong>Profil</strong><span class="klein">${info.profil || 'Gewicht, Größe und Alter für Training und Food & Boost eintragen'}</span></span>
           <span aria-hidden="true">›</span>
         </button>
-        <${Klein} leise>Alles bleibt auf diesem Gerät, es gibt kein Konto. Eine Sicherung beider Bereiche gibt es unter Training → Daten oder Food & Boost → Profil.${info.letzte ? ` Letzte Sicherung: ${new Date(info.letzte).toLocaleDateString('de-DE')}.` : ''}<//>
+        <${Klein} leise>Alles bleibt auf diesem Gerät, es gibt kein Konto. Eine Sicherung aller Bereiche gibt es unter Training → Daten, Food & Boost → Profil oder Einkaufsliste → Mehr.${info.letzte ? ` Letzte Sicherung: ${new Date(info.letzte).toLocaleDateString('de-DE')}.` : ''}<//>
         ${istIOS() && !installiert() && html`<${InstallHinweis} />`}
         <${Klein} leise>Version ${VERSION}<//>
       <//>

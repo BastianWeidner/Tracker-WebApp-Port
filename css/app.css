@@ -443,3 +443,61 @@ div.zeile-uebung { cursor: default; }
   padding: 14px 16px; border: 0; border-radius: 14px; font: inherit; font-weight: 700;
   background: var(--primary); color: var(--on-primary); box-shadow: 0 4px 16px rgba(0, 0, 0, .25);
 }
+
+/* Bereich Einkaufsliste: Farbschema aus #43A047 (wie die Einkaufsliste der Dach-App). */
+:root[data-bereich="einkauf"] {
+  --primary: #2a6b2c;
+  --on-primary: #ffffff;
+  --primary-container: #acf4a4;
+  --on-primary-container: #002204;
+  --secondary: #52634f;
+  --secondary-container: #d5e8cf;
+  --on-secondary-container: #101f10;
+  --background: #f7fbf1;
+  --on-surface: #181d17;
+  --surface-variant: #dee5d8;
+  --on-surface-variant: #424940;
+  --outline: #72796f;
+  --outline-variant: #c2c9bd;
+  --surface-container-low: #f1f5eb;
+  --surface-container: #ebefe6;
+  --surface-container-high: #e6e9e0;
+  --surface-container-highest: #e0e4da;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-bereich="einkauf"] {
+    --primary: #91d78a;
+    --on-primary: #00390a;
+    --primary-container: #0f5216;
+    --on-primary-container: #acf4a4;
+    --secondary: #b9ccb4;
+    --secondary-container: #3b4b39;
+    --on-secondary-container: #d5e8cf;
+    --background: #10140f;
+    --on-surface: #e0e4da;
+    --surface-variant: #424940;
+    --on-surface-variant: #c2c9bd;
+    --outline: #8c9388;
+    --outline-variant: #424940;
+    --surface-container-low: #181d17;
+    --surface-container: #1c211b;
+    --surface-container-high: #272b25;
+    --surface-container-highest: #313630;
+  }
+}
+.schnell { display: flex; gap: 8px; align-items: center; }
+.schnell input { flex: 1; min-width: 0; font: inherit; font-size: 17px; padding: 12px 14px; border-radius: 14px; border: 1.5px solid var(--outline); background: var(--surface-container-low); color: var(--on-surface); }
+.schnell .gross-plus { background: var(--primary); color: var(--on-primary); border: 0; }
+.nachkauf { background: var(--secondary-container); color: var(--on-secondary-container); }
+.nachkauf-kopf { display: flex; align-items: center; gap: 10px; }
+.nachkauf-kopf strong { font-family: 'Nunito', sans-serif; font-size: 18px; }
+.nachkauf-kopf .knopf { background: var(--primary); color: var(--on-primary); padding: 0 14px; width: auto; }
+.nachkauf .leise { color: inherit; opacity: 0.8; }
+.nachkauf-knoepfe { display: flex; gap: 4px; margin: 4px -10px -8px; }
+.einkauf-zeile { display: flex; align-items: center; gap: 2px; padding: 2px 0; }
+.einkauf-zeile > * + * { margin-top: 0; }
+.einkauf-zeile .haken { background: none; border: 0; font-size: 26px; line-height: 1; padding: 6px 8px 6px 0; color: var(--primary); cursor: pointer; }
+.einkauf-zeile .name { font-size: 17px; }
+.einkauf-zeile.erledigt .name { text-decoration: line-through; color: var(--on-surface-variant); }
+.nachkauf .chip { background: transparent; color: inherit; }
+.nachkauf .chip.an { background: var(--primary); color: var(--on-primary); border-color: transparent; }

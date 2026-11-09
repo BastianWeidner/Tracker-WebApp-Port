@@ -1,13 +1,15 @@
 # Gym: Training und Food & Boost (Web-App)
 
-Beim Start eine Übersicht mit zwei Bereichen:
+Beim Start eine Übersicht mit drei Bereichen:
 
 - **Training:** Workouts mit Sätzen, Wiederholungen und Gewicht, Fortschritt je Übung, Belastung je Muskelgruppe,
   Import aus Stronger, Strong, Hevy und FitNotes.
 - **Food & Boost:** Kalorien, Makros und Mikros, Supplements mit Einnahmeplan und Vorrat sowie Koffein und Alkohol
   mit geschätztem Abbau.
+- **Einkaufsliste:** Liste zum Abhaken; was in Food & Boost oft eingetragen wird, kommt als Vorschlag in üblichen
+  Gebinden (Palette, Kasten, 6er-Pack).
 
-Web-Fassung der Unter-Apps „Krafttraining“ und „Food & Boost“ aus der Android-Dach-App, damit sie auch auf dem
+Web-Fassung der Unter-Apps „Krafttraining“, „Food & Boost“ und „Einkaufsliste“ aus der Android-Dach-App, damit sie auch auf dem
 iPhone laufen.
 
 **Alles bleibt auf dem Gerät.** Kein Konto, kein Server, keine Werbung. Die Daten liegen im Browser-Speicher des
@@ -64,6 +66,18 @@ enthält beide Bereiche. Sicherungen der Android-App (Food & Boost bzw. `krafttr
 - **Mahlzeiten:** „Döner mit Pommes und eine Cola“ oder ein Rezept (getippt oder fotografiert) wird mit dem
   Bundeslebensmittelschlüssel geschätzt.
 
+### Einkaufsliste
+
+- **Liste:** Schnelleingabe wie „2x Milch 1,29“, „500 g Hack“ oder „Butter 1,99 €“, abhaken, Menge ändern, erledigte
+  entfernen, als Text teilen (z. B. in WhatsApp).
+- **Vorschläge aus Food & Boost:** Was mindestens 4-mal an 3 Tagen in 4 Wochen eingetragen wurde, erscheint oben als
+  Vorschlag, gerundet auf übliche Gebinde: Dosen als 6er-, 12er- oder 24er-Palette, Plastikflaschen im 6er- oder
+  9er-Pack bzw. Kasten, Bier und Mate im Kasten (20 × 0,5 l, 24 × 0,33 l), Milch und Pflanzendrinks im Karton.
+  Die Menge reicht für 7 Tage (einstellbar). Abgehakte Käufe zählen mit: Solange vom letzten Kauf noch genug da sein
+  müsste, kommt kein Vorschlag. „Später“ blendet 7 Tage aus, „Nicht mehr vorschlagen“ dauerhaft. Supplements und
+  Proteine bleiben draußen (die haben ihren Vorrat unter Boost).
+- Läden, Erinnerungen am Laden und Barcode-Scan gibt es nur in der Android-App.
+
 ## Veröffentlichen mit GitHub Pages
 
 Repository → **Settings** → **Pages** → „Build and deployment“: Source **Deploy from a branch**, Branch **main**,
@@ -76,7 +90,7 @@ Im Repo liegt nur die App, keine persönlichen Daten.
 Reines HTML/JavaScript ohne Build-Schritt (Preact + htm aus `vendor/`). Nach jeder Änderung
 `python3 werkzeuge/sw-bauen.py` ausführen: Das schreibt `sw.js` mit neuer Version, sonst sehen installierte
 Apps die Änderung nicht. Lokal testen: `python3 -m http.server` im Ordner, dann `http://localhost:8000`.
-Logik-Tests: `node test/logik.test.mjs`, `node test/training.test.mjs` und `node test/figuren.test.mjs`.
+Logik-Tests: `node test/logik.test.mjs`, `node test/training.test.mjs`, `node test/figuren.test.mjs` und `node test/einkauf.test.mjs`.
 
 Übungsbilder: Die Haltungen entstehen in `werkzeuge/figuren/haltungen.py` (Python, gleiche Rechnung wie
 `js/figuren.js` und die Android-App). Nach Änderungen `python3 export.py` in dem Ordner ausführen und
