@@ -168,6 +168,7 @@ export const BEWEGUNGEN = [
   B('trizepsueberkopf', 'Trizeps über Kopf', ['overhead triceps extension', 'triceps extension', 'tricep extension', 'overhead tricep extension'], [TRIZEPS], [], [K_, C_, E_]),
   B('enges', 'Enges Bankdrücken', ['close grip bench press', 'close grip bench'], [TRIZEPS, BRUST], [SCHULTERN], [L_, S_]),
   B('trizepsdips', 'Trizeps-Dips', ['triceps dip', 'tricep dip', 'bench dip', 'bench dips', 'triceps dips'], [TRIZEPS], [BRUST, SCHULTERN], [null, M_], 'KOERPER'),
+  B('trizepsmaschine', 'Trizepsdrücken sitzend', ['seated dip', 'seated dip machine', 'seated dips', 'seated triceps press', 'triceps press machine', 'tricep press machine', 'triceps dip machine', 'tricep dip machine', 'triceps machine', 'trizepsmaschine', 'trizepsdrücken maschine'], [TRIZEPS], [BRUST, SCHULTERN], [M_]),
   B('kickback', 'Trizeps-Kickback', ['triceps kickback', 'tricep kickback', 'kickback'], [TRIZEPS], [], [K_, C_]),
   B('handgelenk', 'Unterarmcurl', ['wrist curl', 'wrist curls', 'reverse wrist curl'], [UNTERARME], [], [L_, K_]),
   B('farmer', "Farmer's Walk", ['farmers walk', 'farmer walk', 'farmers carry', 'farmer s walk'], [UNTERARME, TRAPEZ], [BAUCH, QUADRIZEPS], [K_, null], 'GEWICHT'),
@@ -224,6 +225,11 @@ const bewegungsUebung = (b, g) => uebung({
 
 export const KATALOG = BEWEGUNGEN.flatMap((b) => b.geraete.map((g) => bewegungsUebung(b, g)));
 export const katalogNachId = Object.fromEntries(KATALOG.map((u) => [u.id, u]));
+
+// Körpergewicht-Übungen, die es mit Unterstützung gibt (Gegengewicht an der Maschine, Widerstandsband)
+const MIT_UNTERSTUETZUNG = new Set(['dips', 'klimmzug', 'chinup', 'trizepsdips', 'beinheben']);
+/** Schalter „mit Unterstützung“ anbieten: passende Katalogübungen und eigene Körpergewicht-Übungen. */
+export const unterstuetzbar = (u) => u.art === 'KOERPER' && (!katalogNachId[u.id] || MIT_UNTERSTUETZUNG.has(u.id.split('-')[0]));
 
 const bewegungNachAlias = new Map();
 for (const b of BEWEGUNGEN) if (!bewegungNachAlias.has(norm(b.name))) bewegungNachAlias.set(norm(b.name), b);

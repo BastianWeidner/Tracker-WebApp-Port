@@ -259,6 +259,20 @@ def trizepsdips(x):
 arch("trizepsdips", "seite", trizepsdips, szene=[BANK(16, 38, 68)])
 
 
+def trizepsmaschine(x):
+    # Sitzende Trizepsmaschine (Seated Dip): Rücken am Polster, Griffe neben dem Rumpf. Hände drücken von
+    # Brusthöhe (Ellbogen gebeugt, zeigen nach hinten) nach unten bis die Arme neben der Hüfte gestreckt sind.
+    hu = (46, 68)
+    dp, r_ = (74, 60), 30.0
+    w = math.radians(L(-84, -111, x))  # Griff auf dem Kreis um den Hebeldrehpunkt vorn
+    z = (dp[0] + r_ * math.sin(w), dp[1] - r_ * math.cos(w))
+    return hal(huefte=hu, t=-6, s=88, w=170, f=95, arm=[(1, z, 1), (2, (z[0] - 1, z[1]), 1)])
+
+
+arch("trizepsmaschine", "seite", trizepsmaschine, szene=[BANK(36, 56, 72), ("linie", (38, 72), (34.2, 36.2), 4, "dunkel")],
+     punkte=H2, anker=(74, 60), art="MASCHINE")
+
+
 # ================= Rücken =================
 def kreuzheben(x):
     return hal(fuss=(1, 55), t=L(58, 0, x), s=L(126, 180, x), w=L(208, 180, x), o=180, u=180, o2=181, u2=181)
@@ -1014,7 +1028,8 @@ ZUORDNUNG = {
     "stirndruecken": "stirndruecken",
     "trizepsueberkopf": "trizepsueberkopf",
     "enges": "bankdruecken",
-    "trizepsdips": {"*": "trizepsdips", "ma": "dips"},
+    "trizepsdips": {"*": "trizepsdips", "ma": "trizepsmaschine"},
+    "trizepsmaschine": "trizepsmaschine",
     "kickback": "kickback",
     "handgelenk": "handgelenk",
     "farmer": "farmer",
