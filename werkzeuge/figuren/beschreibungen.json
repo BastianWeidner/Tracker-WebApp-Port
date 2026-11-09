@@ -671,5 +671,14 @@
    "Arme ziehen abwechselnd unter dem Körper nach hinten.",
    "Beine schlagen locker aus der Hüfte."
   ]
+ },
+ "bulgarisch_hack": {
+  "kurz": "Einbeiniger Ausfallschritt an der Hackenschmidt-Maschine: der Schlitten führt, das vordere Bein arbeitet fast allein. Betont Quadrizeps und Gesäß.",
+  "ablauf": [
+   "Rücken an den Schlitten, Schultern unter die Polster, dann seitlich einsteigen.",
+   "Vorderen Fuß weit vorn auf die Fußplatte stellen, das hintere Bein steht hinter dem Schlitten auf den Zehen.",
+   "Langsam absenken, bis das hintere Knie fast den Boden berührt.",
+   "Über die Ferse des vorderen Fußes hochdrücken, dann Seite wechseln."
+  ]
  }
 }

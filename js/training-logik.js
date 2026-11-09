@@ -173,6 +173,7 @@ export const BEWEGUNGEN = [
   B('frontkniebeuge', 'Frontkniebeuge', ['front squat'], [QUADRIZEPS], [GESAESS, BAUCH], [L_]),
   B('goblet', 'Goblet Squat', ['goblet squat'], [QUADRIZEPS, GESAESS], [ADDUKTOREN], [K_, KB_]),
   B('hackenschmidt', 'Hackenschmidt', ['hack squat'], [QUADRIZEPS], [GESAESS], [M_]),
+  B('bulgarisch_hack', 'Bulgarian Hack Squat', ['bulgarian hack squat', 'bulgarian split hack squat', 'hack split squat', 'split hack squat'], [QUADRIZEPS, GESAESS], [ADDUKTOREN, BEINBEUGER], [M_]),
   B('beinpresse', 'Beinpresse', ['leg press', '45 degree leg press', 'seated leg press'], [QUADRIZEPS, GESAESS], [ADDUKTOREN], [M_]),
   B('ausfallschritt', 'Ausfallschritte', ['lunge', 'lunges', 'walking lunge', 'walking lunges', 'reverse lunge'], [QUADRIZEPS, GESAESS], [ADDUKTOREN, BEINBEUGER], [K_, L_, null]),
   B('bulgarisch', 'Bulgarische Kniebeuge', ['bulgarian split squat', 'split squat'], [QUADRIZEPS, GESAESS], [ADDUKTOREN], [K_, L_, S_, null]),
