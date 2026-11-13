@@ -446,6 +446,17 @@ arch("hyperext", "seite", hyperext, szene=[("linie", (54, 54), (62, 46), 4.2, "d
      ("linie", _fp[0], _fp[1], 3.2, "dunkel"), ("linie", (_fp[0][0] + 2, _fp[0][1] + 1), (40, 104), 2.0)])
 
 
+def rueckenstrecker_ma(x):
+    # Rückenstrecker-Maschine sitzend: Polster am oberen Rücken, Oberkörper aus der Vorbeuge zurück bis knapp hinter
+    # die Senkrechte. Arme vor der Brust verschränkt, Füße auf der Stütze.
+    t = L(42, -10, x)
+    return hal(huefte=(46, 68), t=t, s=82, w=172, f=95, o=t + 165, u=t + 25)
+
+
+arch("rueckenstrecker_ma", "seite", rueckenstrecker_ma, punkte=("NACKEN",), anker=(40, 72), art="MASCHINE",
+     szene=[BANK(36, 58, 72)])
+
+
 def goodmorning(x):
     return hal(fuss=(1, 55), t=L(0, 78, x), s=L(176, 164, x), w=184, o=205 + L(0, 78, x) * 1.0, u=L(25, 103, x))
 
@@ -1010,7 +1021,7 @@ ZUORDNUNG = {
     "pullover": {"*": "pullover", "kabel": "pullover_kabel"},
     "shrugs": "shrugs",
     "facepull": "facepull",
-    "hyperext": "hyperext",
+    "hyperext": {"*": "hyperext", "ma": "rueckenstrecker_ma"},
     "goodmorning": "goodmorning",
     "schulterdruecken": "schulterdruecken",
     "arnold": "arnold",

@@ -118,7 +118,7 @@ const [L_, K_, C_, M_, S_, E_, KB_, B_] = ['LH', 'KH', 'KABEL', 'MASCHINE', 'SMI
 const B = (key, name, en, primaer, sekundaer = [], geraete = [null], art = 'GEWICHT') => ({ key, name, en, primaer, sekundaer, geraete, art });
 
 /** Bewegungen, deren Maschinen-Variante mit dem Gewichtsblock arbeitet (nicht unterstützend wie Dips- oder Klimmzug-Maschine). */
-const MASCHINE_MIT_BLOCK = new Set(['trizepsdips', 'crunch']);
+const MASCHINE_MIT_BLOCK = new Set(['trizepsdips', 'crunch', 'hyperext']);
 
 export const BEWEGUNGEN = [
   // Brust
@@ -150,7 +150,7 @@ export const BEWEGUNGEN = [
   B('pullover', 'Pullover', ['pullover', 'straight arm pulldown', 'straight arm lat pulldown'], [LAT], [BRUST, TRIZEPS], [K_, C_]),
   B('shrugs', 'Shrugs', ['shrug', 'shrugs'], [TRAPEZ], [UNTERARME], [L_, K_, M_]),
   B('facepull', 'Face Pull', ['face pull', 'face pulls'], [SCHULTERN, TRAPEZ], [], [C_, B_]),
-  B('hyperext', 'Rückenstrecker', ['back extension', 'hyperextension', 'hyperextensions', 'back extensions'], [UNTERER_RUECKEN], [GESAESS, BEINBEUGER], [null], 'KOERPER'),
+  B('hyperext', 'Rückenstrecker', ['back extension', 'hyperextension', 'hyperextensions', 'back extensions', 'back extension machine', 'rueckenstrecker maschine', 'rückenstrecker maschine', 'lower back machine'], [UNTERER_RUECKEN], [GESAESS, BEINBEUGER], [null, M_], 'KOERPER'),
   B('goodmorning', 'Good Morning', ['good morning', 'good mornings'], [BEINBEUGER, UNTERER_RUECKEN], [GESAESS], [L_]),
   // Schultern
   B('schulterdruecken', 'Schulterdrücken', ['overhead press', 'shoulder press', 'military press', 'ohp', 'strict press', 'seated overhead press', 'standing overhead press'], [SCHULTERN], [TRIZEPS, TRAPEZ], [L_, K_, S_, M_]),
