@@ -107,5 +107,6 @@ ok('Training aus Plan-Tag mit Vorgabe', () => {
   const w = P.workoutAusPlan(p.tage[0], katalogNachId, [], 'id', montag);
   assert.equal(w.bloecke.length, p.tage[0].uebungen.length);
   assert.ok(w.bloecke[0].notiz.startsWith('Plan: '));
+  assert.deepEqual(T.workout(w).bloecke.map((b) => b.pauseSek), p.tage[0].uebungen.map((u) => u.pauseSek));
   assert.ok(w.bloecke.every((b) => b.saetze.every((s) => !s.erledigt)));
 });

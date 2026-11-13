@@ -362,7 +362,7 @@ export function workoutAusPlan(tag, uebungen, workouts, id, start) {
     bloecke: tag.uebungen.filter((p) => uebungen[p.uebungId]).map((p) => {
       const v = vorschlag(p, uebungen[p.uebungId], workouts, start);
       const pause = p.pauseSek > 0 ? `, Pause ${Format.dauer(p.pauseSek)}` : '';
-      return { uebungId: p.uebungId, saetze: v.saetze, notiz: `Plan: ${vorgabe(p)}${pause}` + (v.hinweis ? `\n${v.hinweis}` : '') };
+      return { uebungId: p.uebungId, saetze: v.saetze, notiz: `Plan: ${vorgabe(p)}${pause}` + (v.hinweis ? `\n${v.hinweis}` : ''), pauseSek: p.pauseSek };
     }),
   };
 }
