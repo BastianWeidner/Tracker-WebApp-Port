@@ -312,6 +312,7 @@ ok('Maschinen mit Gewichtsblock zählen kein Körpergewicht', () => {
   assert.equal(art('crunch-ma'), 'GEWICHT');
   assert.equal(art('trizepsdips'), 'KOERPER');
   assert.equal(art('dips-ma'), 'KOERPER');
+  assert.equal(art('hyperext-ma'), 'GEWICHT');
 });
 
 ok('Schalter „mit Unterstützung“ nur bei passenden Übungen, Last wird abgezogen', () => {
