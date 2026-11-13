@@ -60,7 +60,8 @@ export const satz = (s = {}) => ({
   erledigt: s.erledigt !== false,
 });
 
-export const block = (b = {}) => ({ uebungId: textOder(b.uebungId), saetze: liste(b.saetze).map(satz), notiz: textOder(b.notiz) });
+/** [pauseSek]: Pause nach jedem Satz (aus dem Trainingsplan), 0 = Pausen-Timer aus den Einstellungen. */
+export const block = (b = {}) => ({ uebungId: textOder(b.uebungId), saetze: liste(b.saetze).map(satz), notiz: textOder(b.notiz), pauseSek: Math.round(zahlOder(b.pauseSek, 0)) });
 
 export const workout = (w = {}) => ({
   id: textOder(w.id), name: textOder(w.name), start: zahlOder(w.start, 0), dauerSek: Math.round(zahlOder(w.dauerSek, 0)),

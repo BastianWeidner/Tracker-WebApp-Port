@@ -140,10 +140,14 @@ export function TrainingApp({ zurUebersicht, profilOeffnen }) {
       const satz = w?.bloecke[b]?.saetze[i];
       if (!satz) return;
       vm.satzAendern(b, i, { ...satz, erledigt: !satz.erledigt });
-      const pause = standRef.current.einstellungen.pauseSek;
+      // Pause aus dem Plan (je Übung), sonst aus den Einstellungen
+      const pause = w.bloecke[b].pauseSek > 0 ? w.bloecke[b].pauseSek : standRef.current.einstellungen.pauseSek;
       if (editorLaufend() && !satz.erledigt && pause > 0) upd(() => ({ pauseBis: Date.now() + pause * 1000, jetzt: Date.now() }));
     },
-    pauseAendern: (sek) => upd((u) => ({ pauseBis: sek === 0 ? 0 : Math.max(u.pauseBis, Date.now()) + sek * 1000, jetzt: Date.now() })),
+    pauseAendern: (sek) => upd((u) => {
+      const bis = sek === 0 ? 0 : Math.max(u.pauseBis, Date.now()) + sek * 1000;
+      return { pauseBis: bis <= Date.now() ? 0 : bis, jetzt: Date.now() };
+    }),
     satzHinzu: (b) => vm.block(b, (bl) => {
       const l = bl.saetze[bl.saetze.length - 1];
       const neu = l ? { ...l, erledigt: !editorLaufend(), typ: 'NORMAL', rpe: null } : T.satz({ erledigt: !editorLaufend() });
@@ -468,6 +472,7 @@ function EditorScreen({ vm, laufend }) {
         ? html`<div class="uhrzeile">
             <span class="gross-wert">⏱ ${uhr((vm.ui.jetzt - w.start) / 1000)}</span>
             ${rest > 0 && html`<span class="pause">Pause ${uhr(rest)}</span>
+              <button class="knopf text" onClick=${() => vm.pauseAendern(-15)}>−15</button>
               <button class="knopf text" onClick=${() => vm.pauseAendern(30)}>+30</button>
               <button class="knopf text" onClick=${() => vm.pauseAendern(0)}>Weiter</button>`}
           </div>`
