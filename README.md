@@ -14,7 +14,7 @@ iPhone laufen.
 
 **Alles bleibt auf dem Gerät.** Kein Konto, kein Server, keine Werbung. Die Daten liegen im Browser-Speicher des
 Handys (IndexedDB). Nach dem ersten Öffnen läuft die App komplett offline, auch der Barcode-Scan, die
-Barcode-Datenbank mit 237.140 Produkten und die Texterkennung für Nährwerttabellen.
+Barcode-Datenbank mit 314.874 Produkten (Deutschland plus vegane Produkte aus Europa) und die Texterkennung für Nährwerttabellen.
 
 ## Für Freunde: installieren (iPhone)
 
@@ -22,7 +22,7 @@ Barcode-Datenbank mit 237.140 Produkten und die Texterkennung für Nährwerttabe
 2. Unten auf **Teilen** ⬆︎ tippen, dann **„Zum Home-Bildschirm“**.
 3. „Gym“ vom Home-Bildschirm starten, Bereich wählen, fertig. Food & Boost fragt beim ersten Öffnen nach den Körperdaten.
 
-Beim ersten Start mit Internet lädt die App alles (ca. 30 MB) für den Offline-Betrieb. Danach braucht sie kein Netz.
+Beim ersten Start mit Internet lädt die App alles (ca. 35 MB) für den Offline-Betrieb. Danach braucht sie kein Netz.
 Android: in Chrome öffnen, Menü ⋮ → „App installieren“.
 
 **Wichtig: Sicherung.** Safari kann die Daten einer Web-App löschen, wenn sie mehrere Wochen nicht geöffnet wurde.
