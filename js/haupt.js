@@ -11,7 +11,7 @@ import * as E from './einkauf-logik.js';
 import { ProfilSeite, profilAbgleichen, profilKurz } from './profil.js';
 import { profilGesetzt } from './logik.js';
 
-const VERSION = '1.4.1';
+const VERSION = '1.5.0';
 
 const BEREICHE = {
   training: { titel: 'Training', symbol: '🏋️', farbe: '#C2185B', text: 'Workouts mit Sätzen und Gewichten, Fortschritt je Übung, Belastung je Muskelgruppe, Import aus Stronger.' },

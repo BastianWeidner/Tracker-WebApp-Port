@@ -111,3 +111,23 @@ ok('Warnungen des Tages: Höchstmengen aus dem Wissen', () => {
   const w = L.Boost.warnungen(s, tb(t0), tb(t0) + L.TAG, tb);
   assert(w.some((x) => x.startsWith('Magnesium heute 300 mg')), w.join('|'));
 });
+ok('Vitamine oben, danach der Rest alphabetisch (wie Android)', () => {
+  const namen = L.Mikros.sortiert(L.Mikros.vitamineUndMineralien).map((m) => m.name);
+  assert.deepEqual(namen.slice(0, 13), ['Vitamin A', 'Vitamin B1', 'Vitamin B2', 'Niacin', 'Pantothensäure', 'Vitamin B6',
+    'Biotin', 'Folat', 'Vitamin B12', 'Vitamin C', 'Vitamin D', 'Vitamin E', 'Vitamin K']);
+  const rest = namen.slice(13);
+  assert.equal(rest[0], 'Calcium');
+  assert.deepEqual([...rest].sort(new Intl.Collator('de').compare), rest);
+  assert.deepEqual(['zink', 'unbekannt', 'vitA', 'calcium', 'folat'].sort(L.Mikros.alphabetischNachKey), ['vitA', 'folat', 'calcium', 'zink', 'unbekannt']);
+});
+ok('Vegane Produkte aus Europa in der Datenbank', () => {
+  const info = JSON.parse(readFileSync('daten/naehrwerte/info.json'));
+  assert(info.anzahl > 300000, info.anzahl);
+  for (const [code, name] of [['7613287344816', 'Wunda original'], ['4260402488028', 'Soja-Schnetzel']]) {
+    const teil = gunzipSync(readFileSync(`daten/naehrwerte/${String(L.dbTeil(code)).padStart(2, '0')}.tsv.gz`)).toString();
+    const n = BigInt(code).toString();
+    const zeile = teil.split('\n').find((z) => z.startsWith(n + '\t'));
+    assert(zeile, code);
+    assert.equal(L.dbLesen(code, zeile.slice(n.length + 1)).name, name);
+  }
+});

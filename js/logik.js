@@ -317,8 +317,27 @@ export const MIKROS = [
   ...Wirkstoffe,
 ];
 
+// Anzeige-Reihenfolge (Wunsch Bastian 2026-11-13, wie Android): erst alle Vitamine nach Buchstaben (A, B1, B2,
+// B3 Niacin, B5, B6, B7 Biotin, B9 Folat, B12, C, D, E, K), danach alles Übrige alphabetisch. MIKROS behält seine
+// Reihenfolge, weil die Etikett-Erkennung sie braucht.
+const VITAMIN_NAME = { niacin: 'Vitamin B3', b5: 'Vitamin B5', biotin: 'Vitamin B7', folat: 'Vitamin B9' };
+const istVitamin = (m) => m.key in VITAMIN_NAME || m.name.startsWith('Vitamin ');
+const sortName = (m) => (VITAMIN_NAME[m.key] || m.name).replace(/\d+/g, (z) => z.padStart(6, '0'));
+const sortierer = new Intl.Collator('de');
+function alphabetisch(a, b) {
+  return (istVitamin(b) - istVitamin(a)) || sortierer.compare(sortName(a), sortName(b));
+}
+
 export const Mikros = {
   alle: MIKROS,
+  alphabetisch,
+  istVitamin,
+  /** Wie alphabetisch, für Schlüssel; unbekannte ans Ende. */
+  alphabetischNachKey(x, y) {
+    const a = Mikros.mikro(x), b = Mikros.mikro(y);
+    return !a || !b ? (!a) - (!b) : alphabetisch(a, b);
+  },
+  sortiert: (liste) => [...liste].sort(alphabetisch),
   vitamineUndMineralien: MIKROS.filter((m) => !m.wirkstoff),
   mikro: (key) => MIKROS.find((m) => m.key === key) || null,
   referenz: (m, g) => (g === 'FRAU' ? m.referenzFrau : m.referenzMann),
