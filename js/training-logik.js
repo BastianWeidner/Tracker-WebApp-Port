@@ -71,9 +71,11 @@ export const workout = (w = {}) => ({
 export const einstellungen = (e = {}) => ({
   koerpergewicht: zahlOder(e.koerpergewicht, 0), pauseSek: Math.round(zahlOder(e.pauseSek, 90)),
   wochenzielMin: Math.round(zahlOder(e.wochenzielMin, 10)), wochenzielMax: Math.round(zahlOder(e.wochenzielMax, 20)),
+  // Morgen-Erinnerung zum Trainingsplan: gibt es nur in der Android-App, bleibt hier für die gemeinsame Sicherung erhalten
+  planErinnerung: { aktiv: e.planErinnerung?.aktiv === true, minute: Math.round(zahlOder(e.planErinnerung?.minute, 420)) },
 });
 
-export const neuerStand = () => ({ uebungen: [], workouts: [], einstellungen: einstellungen(), laufend: null, version: 1 });
+export const neuerStand = () => ({ uebungen: [], workouts: [], einstellungen: einstellungen(), laufend: null, plan: null, version: 1 });
 
 /** Stand aus JSON (auch der Android-Sicherung krafttraining.json, dort fehlen Standardwerte). */
 export function standLesen(o) {
@@ -83,6 +85,8 @@ export function standLesen(o) {
     workouts: liste(o.workouts).map(workout).filter((w) => w.id).sort((a, b) => a.start - b.start),
     einstellungen: einstellungen(o.einstellungen || {}),
     laufend: o.laufend ? workout(o.laufend) : null,
+    // Trainingsplan („Bau mir einen Trainingsplan“); genau geprüft wird er in plan-logik.js (planLesen)
+    plan: o.plan && typeof o.plan === 'object' && Array.isArray(o.plan.tage) ? o.plan : null,
     version: 1,
   };
 }

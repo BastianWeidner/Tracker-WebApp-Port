@@ -37,6 +37,11 @@ enthält beide Bereiche. Sicherungen der Android-App (Food & Boost bzw. `krafttr
   Gerät) oder eigene. Je Satz Gewicht und Wiederholungen (Körpergewicht ± Zusatz, Sekunden, Strecke/Zeit),
   Satzart (Aufwärmen, Drop, bis Versagen), Abhaken mit Pausen-Timer und Ton, „Letztes Mal“ als Vorschlag,
   neue Bestwerte nach dem Training. Der Bildschirm bleibt während des Trainings an.
+- **Trainingsplan:** „📋 Bau mir einen Trainingsplan“ fragt Häufigkeit und Tage, Ziel (Abnehmen, Muskelaufbau, Kraft,
+  Ausdauer, Fit & gesund), bis zu zwei Schwerpunkte, Dauer und Ausstattung (Studio, zuhause, ohne Geräte) und baut einen
+  Wochenplan aus dem Katalog (gleiche Pläne wie in der Android-App). Übungen tauschen, neu mischen; beim Start schlägt die
+  App Gewichte nach doppelter Progression vor. Oben im Tab Training steht das heutige Training mit deiner Steigerung
+  (die Morgen-Benachrichtigung gibt es nur in der Android-App).
 - **Übungsbilder:** Jede Übung hat eine selbst gezeichnete Figur mit ihrem Gerät (Hantel, Kabelzug, Maschine,
   Bank …). Die Hauptmuskeln sind kräftig markiert, mitarbeitende heller. In der Übungsansicht läuft die Bewegung als
   Animation (aus bei „Bewegung reduzieren“), in Listen und im Training steht ein kleines Bild.
@@ -90,7 +95,7 @@ Im Repo liegt nur die App, keine persönlichen Daten.
 Reines HTML/JavaScript ohne Build-Schritt (Preact + htm aus `vendor/`). Nach jeder Änderung
 `python3 werkzeuge/sw-bauen.py` ausführen: Das schreibt `sw.js` mit neuer Version, sonst sehen installierte
 Apps die Änderung nicht. Lokal testen: `python3 -m http.server` im Ordner, dann `http://localhost:8000`.
-Logik-Tests: `node test/logik.test.mjs`, `node test/training.test.mjs`, `node test/figuren.test.mjs` und `node test/einkauf.test.mjs`.
+Logik-Tests: `node test/logik.test.mjs`, `node test/training.test.mjs`, `node test/figuren.test.mjs`, `node test/einkauf.test.mjs` und `node test/plan.test.mjs`.
 
 Übungsbilder: Die Haltungen entstehen in `werkzeuge/figuren/haltungen.py` (Python, gleiche Rechnung wie
 `js/figuren.js` und die Android-App). Nach Änderungen `python3 export.py` in dem Ordner ausführen und
@@ -102,6 +107,7 @@ Logik-Tests: `node test/logik.test.mjs`, `node test/training.test.mjs`, `node te
 | `js/profil.js` | Gemeinsames Körperprofil |
 | `js/logik.js` | Rechenlogik Food & Boost (aus der Android-App übertragen), Wissen zu Höchstmengen, Vorgaben, Vorlagen |
 | `js/training-logik.js`, `js/training.js` | Training: Übungskatalog, Rechnung, Import; Oberfläche |
+| `js/plan-logik.js` | Trainingsplan: Plan bauen, Gewichtsvorschlag, Steigerung (Port von Plan.kt/Fortschritt.kt) |
 | `js/figuren.js`, `js/figuren-daten.js` | Übungsbilder: Figur, Muskeln, Geräte, Animation; Haltungen (erzeugt) |
 | `js/sicherung.js` | Gemeinsame Sicherungsdatei |
 | `js/app.js`, `js/teile.js` | Oberfläche Food & Boost, gemeinsame Bausteine |

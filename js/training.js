@@ -7,6 +7,7 @@ import { trainingLaden, trainingSpeichern, standLaden, meta, dauerhaftBitten } f
 import { profilGesetzt } from './logik.js';
 import { sicherungSpeichern, dateiLesen, inhaltText, uebernehmen } from './sicherung.js';
 import { FigurBild } from './figuren.js';
+import * as P from './plan-logik.js';
 import { html, Page, Abschnitt, Hinweis, Klein, Leer, Knopf, Eingabe, ZahlFeld, Auswahl, Schalter, Zaehler, Chip, Dialog } from './teile.js';
 
 const TAG = 86_400_000;
@@ -286,6 +287,36 @@ export function TrainingApp({ zurUebersicht, profilOeffnen }) {
 
     // Sicherung
     sicherungAnbieten: (x) => upd(() => ({ sicherung: x })),
+
+    // Trainingsplan
+    plan: P.planLesen(s.plan),
+    planBauen(w) {
+      const p = P.bauen(w);
+      aendern((x) => ({ ...x, plan: p }));
+      history.pushState({}, '');
+      upd((u) => ({ stapel: [...u.stapel.filter((a) => a.typ !== 'planFragen' && a.typ !== 'plan'), { typ: 'plan' }] }));
+    },
+    planMischen() {
+      const p = P.planLesen(standRef.current.plan);
+      if (p) aendern((x) => ({ ...x, plan: P.bauen({ ...p.wunsch, variante: p.wunsch.variante + 1 }) }));
+    },
+    planTauschen(tag, i) {
+      const p = P.planLesen(standRef.current.plan);
+      if (p) aendern((x) => ({ ...x, plan: P.tauschen(p, tag, i) }));
+    },
+    planLoeschen() {
+      aendern((x) => ({ ...x, plan: null }));
+      upd((u) => ({ stapel: u.stapel.filter((a) => a.typ !== 'plan') }));
+    },
+    trainingAusPlan(tag) {
+      if (!standRef.current.laufend) {
+        const w = T.workout(P.workoutAusPlan(tag, uebungen, standRef.current.workouts, neueId(), Date.now()));
+        aendern((x) => ({ ...x, laufend: w }));
+        dauerhaftBitten();
+      }
+      history.pushState({ n: 1 }, '');
+      upd(() => ({ tab: 'training', stapel: [{ typ: 'editor', laufend: true }] }));
+    },
   };
 
   return html`
@@ -340,6 +371,8 @@ function bildschirm(vm, a) {
     case 'importVorschau': return html`<${ImportVorschau} vm=${vm} />`;
     case 'importZuordnung': return html`<${ImportZuordnung} vm=${vm} />`;
     case 'anleitung': return html`<${AnleitungScreen} vm=${vm} />`;
+    case 'planFragen': return html`<${PlanFragen} vm=${vm} />`;
+    case 'plan': return vm.plan ? html`<${PlanAnsicht} vm=${vm} />` : html`<${PlanFragen} vm=${vm} />`;
     default: return null;
   }
 }
@@ -368,11 +401,13 @@ function TrainingTab({ vm }) {
   let monat = '';
   return html`
     <${Page} titel="Training">
+      ${vm.plan && !l && html`<${PlanKarte} vm=${vm} />`}
       ${l ? html`<div class="karte laeuft">
           <h2>${l.name} läuft seit ${uhr((ui.jetzt - l.start) / 1000)}</h2>
           <${Knopf} onClick=${() => vm.trainingStarten()}>Weiter trainieren<//>
         </div>`
         : html`<${Knopf} onClick=${() => vm.trainingStarten()}>Leeres Training starten<//>`}
+      ${(!vm.plan || l) && html`<${PlanKarte} vm=${vm} />`}
       <${Klein} leise>Diese Woche: ${anzahl(diese.length, 'Training', 'Trainings')}, ${anzahl(saetze, 'Satz', 'Sätze')}<//>
       ${vorlagen.length > 0 && !l && html`
         <h3 class="zwischen">Wiederholen</h3>
@@ -1082,4 +1117,127 @@ function ImportZuordnung({ vm }) {
       <${Schalter} label="Trainingsdauer als Sekunden" an=${z.dauerInSekunden} hilfe="Sonst Minuten oder „1h 5m“" onWechsel=${(v) => vm.importZuordnung({ ...z, dauerInSekunden: v })} />
       ${beispiel && html`<${Abschnitt} titel="Erste Datenzeile"><p class="rohtext">${beispiel}</p><//>`}
     <//>`;
+}
+
+// ---------- Trainingsplan ----------
+
+/** „Bau mir einen Trainingsplan“ oder, wenn es einen gibt: heute bzw. nächstes Training mit Steigerung. */
+function PlanKarte({ vm }) {
+  const { s, ui, koerper } = vm;
+  const plan = vm.plan;
+  const tagNr = Math.floor(ui.jetzt / TAG);
+  const heute = P.tagBeginn(ui.jetzt);
+  const daten = useMemo(() => {
+    if (!plan) return null;
+    const n = P.naechster(plan, ui.jetzt);
+    const schon = s.workouts.some((w) => w.start >= heute);
+    const z = n && n.tagMs === heute ? P.zusammenfassung(s, plan, koerper, ui.jetzt) : null;
+    const steig = n ? P.steigerungen(n.tag.uebungen.map((p) => p.uebungId), s, koerper, ui.jetzt) : [];
+    return { n, schon, z, steig, danach: P.naechster(plan, P.tagBeginn(ui.jetzt, 1)) };
+  }, [plan, s.workouts, tagNr, koerper]);
+  const [offen, setOffen] = useState(false);
+  if (!plan) return html`<${Knopf} art="umriss" onClick=${() => vm.oeffnen({ typ: 'planFragen' })}>📋 Bau mir einen Trainingsplan<//>`;
+  const { n, schon, z, steig, danach } = daten;
+  if (!n) return html`<button class="karte tplan-karte" onClick=${() => vm.oeffnen({ typ: 'plan' })}><strong>📋 ${plan.name}</strong><span class="klein">Keine Trainingstage im Plan.</span></button>`;
+  const istHeute = n.tagMs === heute;
+  const wt = (ms) => P.wochentag(ms) - 1;
+  const wann = istHeute && schon ? `Heute erledigt ✅ · nächstes: ${danach ? `${P.WOCHENTAGE[wt(danach.tagMs)]} · ${danach.tag.name}` : '–'}`
+    : istHeute ? (z?.titel || `Heute: ${n.tag.name}`)
+      : n.tagMs === P.tagBeginn(ui.jetzt, 1) ? `Morgen: ${n.tag.name}` : `${P.WOCHENTAGE_LANG[wt(n.tagMs)]}: ${n.tag.name}`;
+  const lob = z ? z.lob : steig.slice(0, 2).map((x) => `📈 ${x.text}`);
+  return html`
+    <div class="karte tplan-karte">
+      <button class="tplan-kopf" onClick=${() => vm.oeffnen({ typ: 'plan' })}>
+        <span class="klein leise">📋 ${plan.name} ›</span>
+        <strong>${wann}</strong>
+        <span class="klein">${n.tag.uebungen.length} Übungen · ca. ${P.dauerMinuten(n.tag)} min</span>
+      </button>
+      ${z && html`<p class="klein">${z.text}</p>`}
+      ${(offen ? lob : lob.slice(0, 2)).map((l) => html`<p class="klein">${l}</p>`)}
+      ${z && offen && html`<ul class="klein tplan-liste">${z.zeilen.map((x) => html`<li>${x}</li>`)}</ul><p class="klein leise">${z.spruch}</p>`}
+      ${z && html`<button class="knopf text" onClick=${() => setOffen(!offen)}>${offen ? 'Weniger' : 'Mehr zur Steigerung und Übungen'}</button>`}
+      ${!s.laufend && !(istHeute && schon) && html`<${Knopf} onClick=${() => vm.trainingAusPlan(n.tag)}>${istHeute ? '▶ Heutiges Training starten' : `▶ ${n.tag.name} jetzt starten`}<//>`}
+    </div>`;
+}
+
+function PlanFragen({ vm }) {
+  const alt = vm.plan?.wunsch;
+  const [tage, setTage] = useState(alt?.wochentage || P.standardTage(3));
+  const [ziel, setZiel] = useState(alt?.ziel || null);
+  const [schwer, setSchwer] = useState(alt?.schwerpunkte || []);
+  const [minuten, setMinuten] = useState(alt?.minuten || 60);
+  const [ausst, setAusst] = useState(alt?.ausstattung || 'STUDIO');
+  const [ersetzen, setErsetzen] = useState(false);
+  const fertig = !!ziel && tage.length > 0;
+  const bauen = () => vm.planBauen({ wochentage: [...tage].sort((a, b) => a - b), ziel, schwerpunkte: schwer, minuten, ausstattung: ausst });
+  return html`
+    <${Page} titel="Trainingsplan bauen" zurueck=${() => history.back()}
+      unten=${html`<${Knopf} deaktiviert=${!fertig} onClick=${() => (vm.plan ? setErsetzen(true) : bauen())}>Plan bauen<//>`}>
+      <p>Ein paar Fragen, dann stellt die App dir einen Wochenplan aus dem Übungskatalog zusammen. Übungen kannst du danach tauschen, die Gewichte schlägt sie aus deinen Trainings vor.</p>
+      <${Abschnitt} titel="Wie oft pro Woche?">
+        <div class="chips">${[1, 2, 3, 4, 5, 6].map((n) => html`<${Chip} an=${tage.length === n} onClick=${() => setTage(P.standardTage(n))}>${n}×<//>`)}</div>
+        <p class="klein">An welchen Tagen?</p>
+        <div class="chips">${P.WOCHENTAGE.map((w, i) => {
+          const d = i + 1;
+          return html`<${Chip} an=${tage.includes(d)} onClick=${() => setTage(tage.includes(d) ? tage.filter((x) => x !== d) : tage.length < 6 ? [...tage, d].sort((a, b) => a - b) : tage)}>${w}<//>`;
+        })}</div>
+        ${!tage.length && html`<${Hinweis}>Mindestens einen Tag wählen.<//>`}
+      <//>
+      <${Abschnitt} titel="Was ist dein Ziel?">
+        ${P.ZIELE.map((z) => html`<div class="tplan-wahl" key=${z}>
+          <${Chip} an=${ziel === z} onClick=${() => setZiel(z)}>${P.Ziel[z].symbol} ${P.Ziel[z].titel}<//>
+          <span class="klein leise">${P.Ziel[z].beschreibung}</span></div>`)}
+      <//>
+      <${Abschnitt} titel="Schwerpunkt (freiwillig)">
+        <p class="klein">Bis zu zwei. Bekommt eine Extra-Übung und einen Satz mehr.</p>
+        <div class="chips">${P.SCHWERPUNKTE.map((sp) => html`<${Chip} an=${schwer.includes(sp)}
+          onClick=${() => setSchwer(schwer.includes(sp) ? schwer.filter((x) => x !== sp) : [...schwer, sp].slice(-2))}>${P.Schwerpunkt[sp].titel}<//>`)}</div>
+      <//>
+      <${Abschnitt} titel="Wie lange pro Training?">
+        <div class="chips">${[30, 45, 60, 75, 90].map((m) => html`<${Chip} an=${minuten === m} onClick=${() => setMinuten(m)}>${m} min<//>`)}</div>
+      <//>
+      <${Abschnitt} titel="Wo trainierst du?">
+        ${P.AUSSTATTUNGEN.map((a) => html`<div class="tplan-wahl" key=${a}>
+          <${Chip} an=${ausst === a} onClick=${() => setAusst(a)}>${P.Ausstattung[a].titel}<//>
+          <span class="klein leise">${P.Ausstattung[a].beschreibung}</span></div>`)}
+      <//>
+    <//>
+    ${ersetzen && html`<${Dialog} text="Den bisherigen Plan durch einen neuen ersetzen? Getauschte Übungen gehen dabei verloren."
+      jaText="Neu bauen" ja=${() => { setErsetzen(false); bauen(); }} nein=${() => setErsetzen(false)} />`}`;
+}
+
+function PlanAnsicht({ vm }) {
+  const plan = vm.plan;
+  const [loeschen, setLoeschen] = useState(false);
+  const heute = P.wochentag(Date.now());
+  return html`
+    <${Page} titel="Trainingsplan" zurueck=${() => history.back()}
+      aktionen=${html`<button class="knopf text" onClick=${() => vm.oeffnen({ typ: 'planFragen' })}>Ändern</button>`}>
+      <h2 class="zwischen">${plan.name}</h2>
+      <${Klein} leise>${plan.wunsch.minuten} min · ${P.Ausstattung[plan.wunsch.ausstattung].titel}. Gewichte: Schaffst du in allen Sätzen das obere Ende der Wiederholungen, schlägt die App beim nächsten Mal mehr Gewicht vor. Die Morgen-Erinnerung gibt es in der Android-App; hier steht die Zusammenfassung oben im Tab Training.<//>
+      ${plan.tage.map((t, i) => html`
+        <section class=${'karte' + (t.wochentag === heute ? ' laeuft' : '')} key=${i + '-' + t.wochentag}>
+          <div class="reihe-text"><span class="klein stark-farbe">${P.WOCHENTAGE_LANG[t.wochentag - 1]}${t.wochentag === heute ? ' · heute' : ''}</span><span class="klein">ca. ${P.dauerMinuten(t)} min</span></div>
+          <h2>${t.name}</h2>
+          ${t.uebungen.map((p, j) => {
+            const u = vm.uebungen[p.uebungId];
+            if (!u) return null;
+            return html`<div class="zeile-uebung mit-bild tplan-zeile" key=${j}>
+              <${FigurBild} uebung=${u} klein />
+              <button class="zeile-text" onClick=${() => vm.oeffnen({ typ: 'uebung', id: u.id })}>
+                <span>${u.name}</span>
+                <span class="klein leise">${P.vorgabe(p)}${p.pauseSek > 0 ? ` · Pause ${Format.dauer(p.pauseSek)}` : ''}</span>
+              </button>
+              <button class="knopf text" aria-label="Übung tauschen" onClick=${() => vm.planTauschen(i, j)}>↻</button>
+            </div>`;
+          })}
+          ${!vm.s.laufend && html`<${Knopf} art="umriss" klasse="flach" onClick=${() => vm.trainingAusPlan(t)}>▶ Dieses Training starten<//>`}
+        </section>`)}
+      <div class="reihe">
+        <${Knopf} art="umriss" klasse="flach" onClick=${() => vm.planMischen()}>🔀 Neu mischen<//>
+        <${Knopf} art="umriss" klasse="flach gefahr" onClick=${() => setLoeschen(true)}>Plan löschen<//>
+      </div>
+    <//>
+    ${loeschen && html`<${Dialog} text="Trainingsplan löschen? Deine Trainings bleiben erhalten." jaText="Löschen"
+      ja=${() => { setLoeschen(false); vm.planLoeschen(); }} nein=${() => setLoeschen(false)} />`}`;
 }
