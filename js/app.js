@@ -11,7 +11,7 @@ import * as Scan from './scan.js';
 import { profilKurz } from './profil.js';
 import { html, Page, Abschnitt, Hinweis, Klein, Leer, Knopf, Balken, Eingabe, ZahlFeld, Auswahl, Schalter, Zaehler, Chips, Chip, Dialog } from './teile.js';
 
-const VERSION = '1.4.1';
+const VERSION = '1.5.1';
 
 // ---------- Zeit ----------
 
@@ -408,8 +408,8 @@ function EssenTab({ vm }) {
   const verteilung = Ziele.eiweissVerteilung(eintraege, s.koerper, (ms) => new Date(ms).getHours());
   const auffaellig = Mikros.auffaellig(eintraege, s.koerper.geschlecht);
   const g = s.koerper.geschlecht;
-  const mitWert = Mikros.alle.filter((m) => Mikros.referenz(m, g) > 0 && (summe.mikros[m.key] || 0) > 0);
-  const zeigen = alleMikros ? Mikros.alle.filter((m) => Mikros.referenz(m, g) > 0) : mitWert;
+  const mitWert = Mikros.sortiert(Mikros.alle.filter((m) => Mikros.referenz(m, g) > 0 && (summe.mikros[m.key] || 0) > 0));
+  const zeigen = alleMikros ? Mikros.sortiert(Mikros.alle.filter((m) => Mikros.referenz(m, g) > 0)) : mitWert;
 
   return html`
     <${Page} titel=${tagText(ui.tag)} aktionen=${html`<${TagWahl} vm=${vm} />`}
@@ -482,11 +482,11 @@ function BoostTab({ vm }) {
   const heuteE = S.eintraege(s, von, bis);
   const boostHeute = heuteE.filter((e) => L.istBoost(e.kategorie));
   const [training, setTraining] = useState(true);
-  const summen = Wirkstoffe.map((m) => [m, boostHeute.reduce((a, e) => a + (e.naehrwerte.mikros[m.key] || 0), 0)]).filter(([, v]) => v > 0);
+  const summen = Mikros.sortiert(Wirkstoffe).map((m) => [m, boostHeute.reduce((a, e) => a + (e.naehrwerte.mikros[m.key] || 0), 0)]).filter(([, v]) => v > 0);
   const koffein = boostHeute.reduce((a, e) => a + e.koffeinMg, 0);
   const eiweiss = boostHeute.reduce((a, e) => a + e.naehrwerte.eiweiss, 0);
   const kcal = boostHeute.reduce((a, e) => a + e.naehrwerte.kcal, 0);
-  const vitamine = Mikros.vitamineUndMineralien.filter((m) => boostHeute.some((e) => (e.naehrwerte.mikros[m.key] || 0) > 0));
+  const vitamine = Mikros.sortiert(Mikros.vitamineUndMineralien.filter((m) => boostHeute.some((e) => (e.naehrwerte.mikros[m.key] || 0) > 0)));
   const mitVorrat = s.produkte.filter((p) => L.istBoost(p.kategorie) && p.vorratSeit > 0)
     .map((p) => [p, Boost.reichweiteTage(s, p, ui.jetzt)]).sort((a, b) => (a[1] ?? 1e9) - (b[1] ?? 1e9));
   const pruefen = s.produkte.filter((p) => L.istBoost(p.kategorie) && p.pruefen).length;
@@ -662,7 +662,6 @@ function PlanBearbeitenScreen({ vm }) {
   const produkte = vm.s.produkte;
   const pruefung = useMemo(() => L.Wissen.planPruefen(produkte), [produkte]);
   const werte = useMemo(() => L.Wissen.planTageswerte(produkte), [produkte]);
-  const reihe = (k) => { const i = Mikros.alle.findIndex((m) => m.key === k); return i < 0 ? 999 : i; };
   return html`
     <${Page} titel="Einnahmeplan" zurueck=${vm.zurueck}>
       ${pruefung.length ? html`<${HinweisKarte} titel="Prüfung des Plans" hinweise=${pruefung} />`
@@ -685,7 +684,7 @@ function PlanBearbeitenScreen({ vm }) {
       })}
       ${Object.keys(werte).length > 0 && html`
         <${Abschnitt} titel="Pro Tag laut Plan">
-          ${Object.entries(werte).sort(([a], [b]) => reihe(a) - reihe(b)).map(([k, v]) => {
+          ${Object.entries(werte).sort(([a], [b]) => Mikros.alphabetischNachKey(a, b)).map(([k, v]) => {
             const i = L.Wissen.info(k);
             const zu = i && L.Wissen.zuViel(i, v);
             return html`<p class=${zu ? 'rot' : ''} key=${k}>${L.Wissen.name(k)}: ${L.Wissen.menge(k, v)}${i?.maxText ? ` (Richtwert ${i.maxText})` : ''}</p>`;
@@ -842,7 +841,7 @@ function ProduktScreen({ vm, a }) {
   const bezug = jePortion && p.portion > 0 ? `je ${L.portionText(p)} (${Format.zahl(p.portion, 2)} ${e})` : `pro 100 ${e}`;
   const nwSetzen = (k, v) => setP({ ...p, naehrwerte: { ...p.naehrwerte, [k]: v } });
   const mikroSetzen = (m) => setP({ ...p, naehrwerte: { ...p.naehrwerte, mikros: m } });
-  const frei = Mikros.alle.filter((m) => !(m.key in p.naehrwerte.mikros) && (m.referenzMann > 0 || m.wirkstoff));
+  const frei = Mikros.sortiert(Mikros.alle.filter((m) => !(m.key in p.naehrwerte.mikros) && (m.referenzMann > 0 || m.wirkstoff)));
   const titel = vorhanden ? 'Produkt ändern' : a.ausDb ? 'Aus der Datenbank: bitte prüfen' : a.gefunden ? 'Gescannt: bitte prüfen' : 'Neues Produkt';
 
   return html`
@@ -880,7 +879,7 @@ function ProduktScreen({ vm, a }) {
           hilfe=${p.koffeinMgPro100 > 0 && !jePortion ? `${Format.zahl((p.koffeinMgPro100 * p.portion) / 100, 0)} mg pro Portion` : a.koffeinFehlt ? 'Fehlt: steht meist als „Koffein … mg/100 ml“ auf der Dose' : p.kategorie === 'BOOSTER' && !(p.koffeinMgPro100 > 0) ? 'Fehlt noch: steht auf dem Etikett, zählt dann in der Koffeinkurve' : null} />
       <//>
       <${Abschnitt} titel=${(boost ? 'Vitamine, Mineralstoffe und Wirkstoffe ' : 'Vitamine und Mineralstoffe ') + bezug}>
-        ${Object.keys(p.naehrwerte.mikros).sort((x, y) => Mikros.alle.findIndex((m) => m.key === x) - Mikros.alle.findIndex((m) => m.key === y)).map((k) => {
+        ${Object.keys(p.naehrwerte.mikros).sort(Mikros.alphabetischNachKey).map((k) => {
           const m = Mikros.mikro(k);
           if (!m) return null;
           return html`<div class="reihe-feld" key=${k + f}>
