@@ -343,3 +343,62 @@ ok('Teilmuskeln: jede Bewegung zugeordnet, Gruppen passen, eigene Übungen belas
   const er = T.Belastung.erholungTeile([w], T.katalogNachId, 1000);
   assert.ok(er.BRUST_OBEN < 1 && er.BRUST_UNTEN === 1);
 });
+
+// ---------- Ausdauer (wie CardioTest.kt) ----------
+{
+  const { Cardio } = T;
+  const u = (id) => katalogNachId[id];
+  const S = (x) => T.satz(x);
+  const tag = (t, h = 18) => ms(2026, 11, 9 + t, h);
+  const tagVon = (x) => new Date(x).toISOString().slice(0, 10);
+
+  ok('Cardio: Stufe aus Tempo und Eingabe', () => {
+    assert.equal(Cardio.stufe(S({ meter: 5000, sekunden: 1800 }), u('laufen')), 'INTENSIV');
+    assert.equal(Cardio.stufe(S({ meter: 5000, sekunden: 3600 }), u('laufen')), 'MODERAT');
+    assert.equal(Cardio.stufe(S({ meter: 15000, sekunden: 3600 }), u('radfahren')), 'MODERAT');
+    assert.equal(Cardio.stufe(S({ meter: 25000, sekunden: 3600 }), u('radfahren')), 'INTENSIV');
+    assert.equal(Cardio.stufe(S({ sekunden: 1800 }), u('rudergeraet')), 'MODERAT');
+    assert.equal(Cardio.stufe(S({ sekunden: 600 }), u('seilspringen')), 'INTENSIV');
+    assert.equal(Cardio.stufe(S({ meter: 5000, sekunden: 1800, intensitaet: 'LOCKER' }), u('laufen')), 'LOCKER');
+  });
+
+  ok('Cardio: MET für den Verbrauch', () => {
+    nah(Cardio.met(S({ meter: 5000, sekunden: 1800 }), u('laufen')), 10);
+    nah(Cardio.met(S({ sekunden: 1800 }), u('schwimmen')), 5);
+    nah(Cardio.met(S({ sekunden: 1800, intensitaet: 'INTENSIV' }), u('schwimmen')), 8);
+    nah(Cardio.met(S({ meter: 5000, sekunden: 1800, intensitaet: 'LOCKER' }), u('laufen')), 2.8);
+    // Ergometer ohne Tempo: moderat, MET 5 → (5 − 1) × 82 × 0,5 h = 164
+    const rad = T.workout({ id: 'r', bloecke: [{ uebungId: 'radfahren', saetze: [{ sekunden: 1800 }] }] });
+    assert.equal(Verbrauch.kcal(rad, katalogNachId, 82), 164);
+  });
+
+  ok('Cardio: Woche nach WHO', () => {
+    const ws = [
+      Cardio.eintrag('a', u('radfahren'), tag(0), 60, 0, null),
+      Cardio.eintrag('b', u('laufen'), tag(2), 30, 6, null),
+      Cardio.eintrag('c', u('schwimmen'), tag(3), 40, 0, 'LOCKER'),
+      T.workout({ id: 'k1', start: tag(1), bloecke: [{ uebungId: 'bankdruecken-lh', saetze: [{ gewicht: 80, wdh: 8 }] }] }),
+      T.workout({ id: 'k2', start: tag(1, 20), bloecke: [{ uebungId: 'kniebeuge-lh', saetze: [{ gewicht: 100, wdh: 5 }] }] }),
+      Cardio.eintrag('alt', u('laufen'), tag(-1), 30, 0, null),
+    ];
+    const w = Cardio.woche(ws, katalogNachId, tag(0, 0), tag(7, 0), 150, tagVon);
+    assert.equal(w.minuten, 130); assert.equal(w.zielMinuten, 140); assert.equal(w.intensivMinuten, 30);
+    assert.equal(w.einheiten, 3); assert.equal(w.kraftTage, 1); assert.equal(w.geschafft, false); assert.equal(w.offen, 10);
+    assert.equal(w.jeSport[0][0], 'Radfahren');
+  });
+
+  ok('Cardio zählt nicht als harter Satz, aber für die Erholung', () => {
+    const ws = [Cardio.eintrag('a', u('laufen'), tag(0), 90, 0, 'INTENSIV'), T.workout({ id: 'k', start: tag(1), bloecke: [{ uebungId: 'kniebeuge-lh', saetze: [1, 2, 3].map(() => ({ gewicht: 100, wdh: 5 })) }] })];
+    nah(Belastung.saetze(ws, katalogNachId, tag(0, 0), tag(7, 0)).QUADRIZEPS, 3);
+    assert.ok(Belastung.erholung([ws[0]], katalogNachId, tag(0, 20)).QUADRIZEPS < 1);
+  });
+
+  ok('Cardio: Sicherung mit Intensität und Ziel', () => {
+    const st = T.standLesen({ workouts: [{ id: 'x', bloecke: [{ uebungId: 'laufen', saetze: [{ sekunden: 600, intensitaet: 'INTENSIV' }, { sekunden: 60, intensitaet: 'QUATSCH' }] }] }], einstellungen: { cardioZielMin: 300 } });
+    assert.equal(st.workouts[0].bloecke[0].saetze[0].intensitaet, 'INTENSIV');
+    assert.equal(st.workouts[0].bloecke[0].saetze[1].intensitaet, null);
+    assert.equal(st.einstellungen.cardioZielMin, 300);
+    assert.equal(T.standLesen({ workouts: [] }).einstellungen.cardioZielMin, 150);
+    assert.equal(Format.satz(st.workouts[0].bloecke[0].saetze[0], 'CARDIO'), '10 min 🥵');
+  });
+}

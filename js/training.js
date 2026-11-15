@@ -2,13 +2,13 @@
 // und darüber ein Stapel von Ansichten (Training bearbeiten, Übung wählen, Übung, Import …).
 import { useState, useEffect, useMemo, useRef } from '../vendor/preact-htm.js';
 import * as T from './training-logik.js';
-import { Format, Rechnung, Belastung, Muskel, MUSKELN, Messart, MESSARTEN, SatzTyp, SATZTYPEN, FELDER, Import, Anleitung, anzahl, muskelText, unterstuetzbar, Teil, TEILE, Teile } from './training-logik.js';
+import { Format, Rechnung, Belastung, Cardio, Intensitaet, INTENSITAETEN, Muskel, MUSKELN, Messart, MESSARTEN, SatzTyp, SATZTYPEN, FELDER, Import, Anleitung, anzahl, muskelText, unterstuetzbar, Teil, TEILE, Teile } from './training-logik.js';
 import { trainingLaden, trainingSpeichern, standLaden, meta, dauerhaftBitten } from './speicher.js';
 import { profilGesetzt } from './logik.js';
 import { sicherungSpeichern, dateiLesen, inhaltText, uebernehmen } from './sicherung.js';
 import { FigurBild } from './figuren.js';
 import * as P from './plan-logik.js';
-import { html, Page, Abschnitt, Hinweis, Klein, Leer, Knopf, Eingabe, ZahlFeld, Auswahl, Schalter, Zaehler, Chip, Dialog } from './teile.js';
+import { html, Page, Abschnitt, Hinweis, Klein, Leer, Knopf, Eingabe, ZahlFeld, Auswahl, Schalter, Zaehler, Chip, Chips, Dialog } from './teile.js';
 
 const TAG = 86_400_000;
 const neueId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()).replace(/-/g, '').slice(0, 16);
@@ -122,6 +122,27 @@ export function TrainingApp({ zurUebersicht, profilOeffnen }) {
       }
       history.pushState({ n: 1 }, '');
       upd(() => ({ tab: 'training', stapel: [{ typ: 'editor', laufend: true }] }));
+    },
+    /** Ausdauer-Einheit als eigenes Training. [uebungId] null = neue eigene Sportart [eigene]; [tageZurueck] 0 = Ende jetzt, sonst 18 Uhr. */
+    cardioSpeichern({ uebungId, eigene, minuten, km, stufe, tageZurueck, notiz }) {
+      if (!(minuten > 0)) return;
+      const name = (eigene || '').trim();
+      const x = standRef.current;
+      const map = T.uebungMap(x);
+      const vorhanden = uebungId ? null : Object.values(map).find((u) => u.art === 'CARDIO' && u.name.toLowerCase() === name.toLowerCase());
+      let neu = null;
+      if (!uebungId && !vorhanden) {
+        if (!name) return;
+        neu = T.uebung({ id: 'e:' + neueId().slice(0, 8), name, art: 'CARDIO' });
+      }
+      const u = neu || vorhanden || map[uebungId];
+      if (!u) return;
+      let ende = Date.now();
+      if (tageZurueck > 0) { const d = new Date(); d.setDate(d.getDate() - tageZurueck); d.setHours(18, 0, 0, 0); ende = d.getTime(); }
+      const w = Cardio.eintrag(neueId(), u, ende - Math.round(minuten * 60_000), minuten, km, stufe, (notiz || '').trim());
+      aendern((y) => ({ ...y, uebungen: neu ? [...y.uebungen, neu] : y.uebungen, workouts: [...y.workouts, w].sort((a, b) => a.start - b.start) }));
+      history.back();
+      vm.meldung(`${u.name} gespeichert: ${Format.dauer(Math.round(minuten * 60))}.`);
     },
     workoutBearbeiten(id) {
       const w = standRef.current.workouts.find((x) => x.id === id);
@@ -376,6 +397,7 @@ function bildschirm(vm, a) {
     case 'importZuordnung': return html`<${ImportZuordnung} vm=${vm} />`;
     case 'anleitung': return html`<${AnleitungScreen} vm=${vm} />`;
     case 'planFragen': return html`<${PlanFragen} vm=${vm} />`;
+    case 'cardio': return html`<${CardioEintrag} vm=${vm} />`;
     case 'plan': return vm.plan ? html`<${PlanAnsicht} vm=${vm} />` : html`<${PlanFragen} vm=${vm} />`;
     default: return null;
   }
@@ -395,10 +417,11 @@ function TrainingTab({ vm }) {
   const neueste = useMemo(() => [...s.workouts].sort((a, b) => b.start - a.start), [s.workouts]);
   const vorlagen = useMemo(() => {
     const ges = new Set();
-    return neueste.filter((w) => { const k = w.name.trim().toLowerCase(); if (ges.has(k)) return false; ges.add(k); return true; }).slice(0, 6);
+    // Reine Ausdauer-Einträge kommen über „Cardio eintragen“, nicht als Vorlage
+    return neueste.filter((w) => { const k = w.name.trim().toLowerCase(); if (ges.has(k) || Cardio.nurCardio(w, uebungen)) return false; ges.add(k); return true; }).slice(0, 6);
   }, [neueste]);
   const woche = montag(ui.jetzt);
-  const diese = s.workouts.filter((w) => w.start >= woche);
+  const diese = s.workouts.filter((w) => w.start >= woche && !Cardio.nurCardio(w, uebungen));
   const saetze = diese.reduce((a, w) => a + Rechnung.zusammenfassung(w, uebungen, koerper).saetze, 0);
   const l = s.laufend;
   const zeigen = alle ? neueste : neueste.slice(0, 30);
@@ -412,6 +435,7 @@ function TrainingTab({ vm }) {
         </div>`
         : html`<${Knopf} onClick=${() => vm.trainingStarten()}>Leeres Training starten<//>`}
       ${(!vm.plan || l) && html`<${PlanKarte} vm=${vm} />`}
+      ${!l && html`<${CardioKarte} vm=${vm} />`}
       <${Klein} leise>Diese Woche: ${anzahl(diese.length, 'Training', 'Trainings')}, ${anzahl(saetze, 'Satz', 'Sätze')}<//>
       ${vorlagen.length > 0 && !l && html`
         <h3 class="zwischen">Wiederholen</h3>
@@ -439,9 +463,92 @@ function WorkoutKarte({ w, vm }) {
   return html`
     <button class="karte workout" onClick=${() => vm.oeffnen({ typ: 'workout', id: w.id })}>
       <span class="reihe-text"><strong class="ellipse">${w.name}</strong><span class="klein">${Format.datum(w.start)}</span></span>
-      <span class="klein leise">${[w.dauerSek > 0 && Format.dauer(w.dauerSek), anzahl(z.saetze, 'Satz', 'Sätze'), z.volumen > 0 && Format.kg(z.volumen)].filter(Boolean).join(' · ')}</span>
-      <span class="klein zweizeilig">${w.bloecke.map((b) => `${b.saetze.filter(Rechnung.zaehlt).length}× ${vm.uebungen[b.uebungId]?.name || '?'}`).join(', ')}</span>
+      <span class="klein leise">${Cardio.nurCardio(w, vm.uebungen)
+        ? w.bloecke.flatMap((b) => b.saetze.filter(Rechnung.zaehlt).map((x) => Format.satz(x, 'CARDIO'))).join(' · ')
+        : [w.dauerSek > 0 && Format.dauer(w.dauerSek), anzahl(z.saetze, 'Satz', 'Sätze'), z.volumen > 0 && Format.kg(z.volumen)].filter(Boolean).join(' · ')}</span>
+      ${!Cardio.nurCardio(w, vm.uebungen) && html`<span class="klein zweizeilig">${w.bloecke.map((b) => `${b.saetze.filter(Rechnung.zaehlt).length}× ${vm.uebungen[b.uebungId]?.name || '?'}`).join(', ')}</span>`}
     </button>`;
+}
+
+// ---------- Ausdauer ----------
+
+const naechsteStufe = (i) => (i == null ? 'LOCKER' : i === 'LOCKER' ? 'MODERAT' : i === 'MODERAT' ? 'INTENSIV' : null);
+
+/** Sportarten für den Schnell-Eintrag: zuletzt benutzte zuerst, dann Katalog-Reihenfolge, dann eigene. */
+function sportarten(s, uebungen) {
+  const zuletzt = [...new Set([...s.workouts].sort((a, b) => b.start - a.start).flatMap((w) => w.bloecke.map((b) => b.uebungId)))];
+  const katalog = T.KATALOG.filter((u) => u.art === 'CARDIO').map((u) => u.id);
+  const rang = (l, id) => { const i = l.indexOf(id); return i < 0 ? Infinity : i; };
+  return Object.values(uebungen).filter((u) => u.art === 'CARDIO')
+    .sort((a, b) => rang(zuletzt, a.id) - rang(zuletzt, b.id) || rang(katalog, a.id) - rang(katalog, b.id) || a.name.localeCompare(b.name));
+}
+
+/** Wochenkarte: WHO-Minuten als Ring, Krafttage, Knopf zum Eintragen. */
+function CardioKarte({ vm }) {
+  const { s, ui, uebungen } = vm;
+  const von = montag(ui.jetzt);
+  const w = Cardio.woche(s.workouts, uebungen, von, ui.jetzt + 60_000, s.einstellungen.cardioZielMin);
+  return html`
+    <section class="karte cardio-karte">
+      <div class="cardio-kopf">
+        <div class="ring" style=${{ '--anteil': Math.round(w.anteil * 100) }} role="img" aria-label=${`${Math.round(w.anteil * 100)} Prozent des Ausdauer-Ziels`}>
+          <span>${w.geschafft ? '✓' : Math.round(w.anteil * 100) + ' %'}</span>
+        </div>
+        <div>
+          <h2>Ausdauer diese Woche</h2>
+          <p>${Cardio.text(w)}</p>
+          <span class="klein leise">${[
+            w.intensivMinuten > 0 && `davon ${w.intensivMinuten} min intensiv (zählt doppelt)`,
+            `Kraft an ${anzahl(w.kraftTage, 'Tag', 'Tagen')}${w.kraftTage >= Cardio.KRAFT_TAGE ? ' ✓' : ' (WHO: 2)'}`,
+          ].filter(Boolean).join(' · ')}</span>
+        </div>
+      </div>
+      ${w.jeSport.length > 0 && html`<span class="klein leise">${w.jeSport.slice(0, 4).map(([n, m]) => `${n} ${m} min`).join(' · ')}</span>`}
+      <${Knopf} art="umriss" klasse="flach" onClick=${() => vm.oeffnen({ typ: 'cardio' })}>🏃 Cardio eintragen<//>
+    </section>`;
+}
+
+const NEU = '__neu';
+
+/** Schnell-Eintrag einer Ausdauer-Einheit ohne laufendes Training. */
+function CardioEintrag({ vm }) {
+  const sporte = useMemo(() => sportarten(vm.s, vm.uebungen), [vm.s]);
+  const [sport, setSport] = useState(sporte[0]?.id || 'laufen');
+  const [eigene, setEigene] = useState('');
+  const [minuten, setMinuten] = useState(0);
+  const [km, setKm] = useState(0);
+  const [stufe, setStufe] = useState(null);
+  const [tag, setTag] = useState(0);
+  const [notiz, setNotiz] = useState('');
+  const neu = sport === NEU;
+  const u = neu ? T.uebung({ id: 'e:neu', name: eigene.trim() || 'Eigene Sportart', art: 'CARDIO' }) : vm.uebungen[sport];
+  const geschaetzt = u ? Cardio.stufe(T.satz({ sekunden: Math.round(minuten * 60), meter: km * 1000 }), u) : null;
+  const i = stufe || geschaetzt;
+  const ok = minuten > 0 && (!neu || eigene.trim());
+  const zaehlt = { LOCKER: 'Zählt halb fürs Wochenziel.', MODERAT: 'Zählt voll fürs Wochenziel.', INTENSIV: 'Zählt doppelt fürs Wochenziel.' };
+  return html`
+    <${Page} titel="Cardio eintragen" zurueck=${vm.zurueck}
+      unten=${html`<${Knopf} deaktiviert=${!ok} onClick=${() => vm.cardioSpeichern({ uebungId: neu ? null : sport, eigene, minuten, km, stufe, tageZurueck: tag, notiz })}>Speichern<//>`}>
+      <h3 class="zwischen">Sportart</h3>
+      <${Chips}>
+        ${sporte.map((x) => html`<${Chip} key=${x.id} an=${sport === x.id} onClick=${() => setSport(x.id)}>${x.name}<//>`)}
+        <${Chip} an=${neu} onClick=${() => setSport(NEU)}>+ andere<//>
+      <//>
+      ${neu && html`<${Eingabe} label="Name der Sportart" wert=${eigene} onInput=${setEigene} pflicht hilfe="z. B. Wandern, Fußball, Tennis – bleibt danach in der Liste" />`}
+      <${ZahlFeld} label="Minuten *" wert=${minuten} onWert=${setMinuten} klasse=${minuten > 0 ? '' : 'pflicht-leer'} />
+      <${ZahlFeld} label="Strecke in km (optional)" wert=${km} onWert=${setKm} hilfe=${km > 0 && minuten > 0 ? `Tempo ${Format.zahl(km / (minuten / 60), 1)} km/h` : null} />
+      <h3 class="zwischen">Wie anstrengend?</h3>
+      <${Chips}>
+        <${Chip} an=${stufe == null} onClick=${() => setStufe(null)}>automatisch<//>
+        ${INTENSITAETEN.map((k) => html`<${Chip} key=${k} an=${stufe === k} onClick=${() => setStufe(k)}>${Intensitaet[k].symbol} ${Intensitaet[k].titel}<//>`)}
+      <//>
+      ${i && html`<${Klein} leise>${stufe ? '' : `Geschätzt: ${Intensitaet[i].symbol} ${Intensitaet[i].titel}. `}${Intensitaet[i].hilfe[0].toUpperCase() + Intensitaet[i].hilfe.slice(1)}. ${zaehlt[i]}<//>`}
+      <h3 class="zwischen">Wann?</h3>
+      <${Chips}>
+        ${['Heute', 'Gestern', 'Vorgestern'].map((x, j) => html`<${Chip} key=${x} an=${tag === j} onClick=${() => setTag(j)}>${x}<//>`)}
+      <//>
+      <${Eingabe} label="Notiz (optional)" wert=${notiz} onInput=${setNotiz} />
+    <//>`;
 }
 
 // ---------- Training bearbeiten ----------
@@ -534,6 +641,10 @@ function SatzZeile({ nr, s, art, hilfe, laufend, koerper, onChange, onHaken, onL
         ${s.typ === 'NORMAL' ? nr : SatzTyp[s.typ].kurz}
       </button>
       ${felder.map(([label, wert, f, ganz, negativ]) => html`<${ZahlKlein} key=${label} label=${label} wert=${wert} ganz=${ganz} negativ=${negativ} onWert=${(v) => onChange({ ...s, ...f(v) })} />`)}
+      ${art === 'CARDIO' && html`<button class="satz-typ intensitaet" onClick=${() => onChange({ ...s, intensitaet: naechsteStufe(s.intensitaet) })}
+        title=${s.intensitaet ? Intensitaet[s.intensitaet].titel : 'automatisch'} aria-label=${`Intensität ${s.intensitaet ? Intensitaet[s.intensitaet].titel : 'automatisch'}, antippen zum Wechseln`}>
+        ${s.intensitaet ? Intensitaet[s.intensitaet].symbol : 'auto'}
+      </button>`}
       ${laufend && html`<button class=${'haken' + (s.erledigt ? ' an' : '')} onClick=${onHaken} aria-label=${s.erledigt ? 'Satz offen' : 'Satz erledigt'}>✓</button>`}
       <button class="knopf text eng" onClick=${onLoeschen} aria-label="Satz löschen">✕</button>
     </div>
@@ -1037,6 +1148,9 @@ function DatenTab({ vm }) {
           minus=${() => E((x) => ({ wochenzielMin: Math.max(1, x.wochenzielMin - 1) }))} plus=${() => E((x) => ({ wochenzielMin: x.wochenzielMin + 1, wochenzielMax: Math.max(x.wochenzielMax, x.wochenzielMin + 2) }))} minusAn=${e.wochenzielMin > 1} plusAn />
         <${Zaehler} label="Ziel: höchstens Sätze je Woche" wert=${e.wochenzielMax}
           minus=${() => E((x) => ({ wochenzielMax: Math.max(x.wochenzielMin + 1, x.wochenzielMax - 1) }))} plus=${() => E((x) => ({ wochenzielMax: x.wochenzielMax + 1 }))} minusAn=${e.wochenzielMax > e.wochenzielMin + 1} plusAn />
+        <${Zaehler} label="Ausdauer-Ziel je Woche" wert=${e.cardioZielMin + ' min'}
+          minus=${() => E((x) => ({ cardioZielMin: Math.max(30, x.cardioZielMin - 30) }))} plus=${() => E((x) => ({ cardioZielMin: Math.min(600, x.cardioZielMin + 30) }))} minusAn=${e.cardioZielMin > 30} plusAn=${e.cardioZielMin < 600} />
+        <${Klein}>WHO: 150–300 min moderat je Woche (intensive Minuten zählen doppelt, lockere halb), dazu Kraft an 2 Tagen.<//>
       <//>
       <${Abschnitt} titel="Sicherung">
         <p>${anzahl(s.workouts.length, 'Training', 'Trainings')}, ${anzahl(s.uebungen.length, 'eigene Übung', 'eigene Übungen')}. Alles bleibt auf dem Gerät.</p>
