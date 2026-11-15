@@ -43,6 +43,17 @@ export const SatzTyp = {
 };
 export const SATZTYPEN = Object.keys(SatzTyp);
 
+/**
+ * Wie anstrengend eine Ausdauer-Einheit war (Sprechtest). [faktor]: Gewicht fürs WHO-Wochenziel in moderat-gleichwertigen
+ * Minuten (intensiv zählt doppelt). [met]: MET für den Verbrauch, wenn kein Tempo bekannt ist. Wie Intensitaet in Android.
+ */
+export const Intensitaet = {
+  LOCKER: { titel: 'locker', symbol: '🙂', hilfe: 'ganz entspannt, kaum schneller atmen', faktor: 0.5, met: 2.8 },
+  MODERAT: { titel: 'moderat', symbol: '😅', hilfe: 'schneller atmen, Reden geht noch', faktor: 1, met: 5 },
+  INTENSIV: { titel: 'intensiv', symbol: '🥵', hilfe: 'nur noch ein paar Worte am Stück', faktor: 2, met: 8 },
+};
+export const INTENSITAETEN = Object.keys(Intensitaet);
+
 const liste = (x) => (Array.isArray(x) ? x : []);
 const zahlOder = (x, d) => (typeof x === 'number' && Number.isFinite(x) ? x : d);
 const textOder = (x, d = '') => (typeof x === 'string' ? x : d);
@@ -58,6 +69,8 @@ export const satz = (s = {}) => ({
   gewicht: zahlOder(s.gewicht, 0), wdh: Math.round(zahlOder(s.wdh, 0)), sekunden: Math.round(zahlOder(s.sekunden, 0)),
   meter: zahlOder(s.meter, 0), rpe: typeof s.rpe === 'number' ? s.rpe : null, typ: enumOder(s.typ, SatzTyp, 'NORMAL'),
   erledigt: s.erledigt !== false,
+  // Nur Ausdauer: selbst gewählte Intensität, null = aus dem Tempo geschätzt bzw. moderat
+  intensitaet: typeof s.intensitaet === 'string' && s.intensitaet in Intensitaet ? s.intensitaet : null,
 });
 
 /** [pauseSek]: Pause nach jedem Satz (aus dem Trainingsplan), 0 = Pausen-Timer aus den Einstellungen. */
@@ -72,6 +85,8 @@ export const workout = (w = {}) => ({
 export const einstellungen = (e = {}) => ({
   koerpergewicht: zahlOder(e.koerpergewicht, 0), pauseSek: Math.round(zahlOder(e.pauseSek, 90)),
   wochenzielMin: Math.round(zahlOder(e.wochenzielMin, 10)), wochenzielMax: Math.round(zahlOder(e.wochenzielMax, 20)),
+  // Ausdauer-Ziel je Woche in moderat-gleichwertigen Minuten (WHO: 150–300)
+  cardioZielMin: Math.round(zahlOder(e.cardioZielMin, 150)),
   // Morgen-Erinnerung zum Trainingsplan: gibt es nur in der Android-App, bleibt hier für die gemeinsame Sicherung erhalten
   planErinnerung: { aktiv: e.planErinnerung?.aktiv === true, minute: Math.round(zahlOder(e.planErinnerung?.minute, 420)) },
 });
@@ -406,7 +421,7 @@ export const Format = {
     if (art === 'GEWICHT') t = `${Format.zahl(s.gewicht, 2)} kg × ${s.wdh}`;
     else if (art === 'KOERPER') t = s.gewicht > 0 ? `+${Format.zahl(s.gewicht, 2)} kg × ${s.wdh}` : s.gewicht < 0 ? `−${Format.zahl(-s.gewicht, 2)} kg × ${s.wdh}` : `${s.wdh} Wdh.`;
     else if (art === 'ZEIT') t = s.gewicht > 0 ? `${Format.dauer(s.sekunden)} mit ${Format.zahl(s.gewicht, 2)} kg` : Format.dauer(s.sekunden);
-    else t = [s.meter > 0 ? Format.strecke(s.meter) : null, s.sekunden > 0 ? Format.dauer(s.sekunden) : null].filter(Boolean).join(' in ') || '–';
+    else t = ([s.meter > 0 ? Format.strecke(s.meter) : null, s.sekunden > 0 ? Format.dauer(s.sekunden) : null].filter(Boolean).join(' in ') || '–') + (s.intensitaet ? ` ${Intensitaet[s.intensitaet].symbol}` : '');
     return t + (s.rpe != null ? ` @${Format.zahl(s.rpe)}` : '');
   },
   datum(ms, utc) { const d = teile(ms, utc); return `${WTAGE[d.wt]}, ${d.t}. ${MONATE[d.m]} ${d.j}`; },
@@ -534,10 +549,11 @@ export const Belastung = {
   VOLL: 8,
   stufen: ['Einsteiger', 'Anfänger', 'Fortgeschrittener Anfänger', 'Mittel', 'Fortgeschritten', 'Elite'],
 
-  jeSatz(workouts, uebungen, f) {
+  /** [mitCardio]: Ausdauer zählt nur für die Erholung, nicht als harte Sätze im Wochenziel. */
+  jeSatz(workouts, uebungen, f, mitCardio = false) {
     for (const w of workouts) for (const b of w.bloecke) {
       const u = uebungen[b.uebungId];
-      if (!u) continue;
+      if (!u || (!mitCardio && u.art === 'CARDIO')) continue;
       const n = b.saetze.filter(Rechnung.zaehlt).length;
       if (!n) continue;
       for (const m of u.primaer) f(w, m, n);
@@ -545,10 +561,10 @@ export const Belastung = {
     }
   },
 
-  jeSatzTeil(workouts, uebungen, f) {
+  jeSatzTeil(workouts, uebungen, f, mitCardio = false) {
     for (const w of workouts) for (const b of w.bloecke) {
       const u = uebungen[b.uebungId];
-      if (!u) continue;
+      if (!u || (!mitCardio && u.art === 'CARDIO')) continue;
       const n = b.saetze.filter(Rechnung.zaehlt).length;
       if (!n) continue;
       const [p, s] = Teile.von(u);
@@ -571,7 +587,7 @@ export const Belastung = {
     Belastung.jeSatzTeil(relevant, uebungen, (w, t, n) => {
       const stunden = Math.max(0, jetzt - (w.start + w.dauerSek * 1000)) / 3_600_000;
       last[t] += n * Math.exp(-stunden / (Teil[t].erholungStunden / 3));
-    });
+    }, true);
     return Object.fromEntries(TEILE.map((t) => [t, 1 - Math.min(1, Math.max(0, last[t] / Belastung.VOLL))]));
   },
 
@@ -590,7 +606,7 @@ export const Belastung = {
       const ende = w.start + w.dauerSek * 1000;
       const stunden = Math.max(0, jetzt - ende) / 3_600_000;
       last[muskel] += n * Math.exp(-stunden / (Muskel[muskel].erholungStunden / 3));
-    });
+    }, true);
     return Object.fromEntries(MUSKELN.map((m) => [m, 1 - Math.min(1, Math.max(0, last[m] / Belastung.VOLL))]));
   },
 
@@ -632,19 +648,18 @@ export const Belastung = {
 
 /**
  * Grober Zusatzverbrauch eines Trainings über MET-Werte, netto (ohne Ruheumsatz): kcal = (MET − 1) × kg × Stunden.
- * Kraft MET 5, ohne Dauer 2,5 min je Satz; Cardio MET 7, Laufen nach Tempo.
+ * Kraft MET 5, ohne Dauer 2,5 min je Satz; Ausdauer nach Cardio.met (Tempo oder Intensität).
  */
 export const Verbrauch = {
-  MET_KRAFT: 5, MET_CARDIO: 7, SEK_JE_SATZ: 150,
+  MET_KRAFT: 5, SEK_JE_SATZ: 150,
   kcal(w, uebungen, kg) {
     let cardioSek = 0, cardioKcal = 0, kraftSaetze = 0;
     for (const b of w.bloecke) {
       const u = uebungen[b.uebungId];
       for (const s of b.saetze.filter((x) => x.erledigt)) {
         if (u?.art === 'CARDIO') {
-          const sek = s.sekunden > 0 ? s.sekunden : Math.round(s.meter * 0.36);
-          const kmh = s.sekunden > 0 && s.meter > 0 ? s.meter / 1000 / (s.sekunden / 3600) : 0;
-          const met = kmh >= 6.5 && /lauf|run|jogg|sprint/i.test(u.name) ? Math.min(16, kmh) : Verbrauch.MET_CARDIO;
+          const sek = Cardio.sekunden(s);
+          const met = Cardio.met(s, u);
           cardioSek += sek;
           cardioKcal += ((met - 1) * kg * sek) / 3600;
         } else kraftSaetze++;
@@ -660,6 +675,89 @@ export const Verbrauch = {
     const kg = koerperKg(s, foodKg);
     return s.workouts.filter((w) => w.start >= jetzt - tage * 86_400_000).map((w) => ({ id: w.id, start: w.start, kcal: Verbrauch.kcal(w, u, kg), name: w.name }));
   },
+};
+
+// ---------- Ausdauer (WHO) ----------
+
+/**
+ * Ausdauer nach der WHO-Empfehlung: je Woche 150–300 min moderat oder 75–150 min intensiv (intensiv zählt doppelt),
+ * dazu Kraft an mindestens 2 Tagen. Intensität aus der Eingabe oder bei Laufen/Rad aus dem Tempo (MET: unter 3 locker,
+ * bis unter 6 moderat, ab 6 intensiv). Lockere Minuten zählen halb. Gleiche Rechnung wie Cardio.kt in Android.
+ */
+const RE_LAUFEN = /lauf|run|jogg|sprint|walk|geh|wander|hike/i;
+const RE_RENNEN = /lauf|run|jogg|sprint/i;
+const RE_RAD = /rad|cycl|bike|bicycle|fahrrad/i;
+const IMMER_INTENSIV = new Set(['seilspringen']);
+
+export const Cardio = {
+  WHO_MIN: 150, WHO_OPTIMAL: 300, KRAFT_TAGE: 2,
+  sekunden: (s) => (s.sekunden > 0 ? s.sekunden : Math.round(s.meter * 0.36)),
+  kmh: (s) => (s.sekunden > 0 && s.meter > 0 ? s.meter / 1000 / (s.sekunden / 3600) : 0),
+  metAusTempo(s, u) {
+    const v = Cardio.kmh(s);
+    if (v <= 0) return null;
+    const name = `${u.id} ${u.name}`;
+    if (RE_LAUFEN.test(name) && !RE_RAD.test(name) && v < 30) {
+      return v >= 6.5 && RE_RENNEN.test(name) ? Math.min(16, v) : Math.min(6, Math.max(2, 0.6 * v + 0.5));
+    }
+    if (RE_RAD.test(name) && v < 60) return v < 16 ? 4 : v < 19 ? 6.8 : v < 22 ? 8 : v < 25 ? 10 : 12;
+    return null;
+  },
+  stufeAusMet: (met) => (met < 3 ? 'LOCKER' : met < 6 ? 'MODERAT' : 'INTENSIV'),
+  stufe(s, u) {
+    if (s.intensitaet) return s.intensitaet;
+    const t = Cardio.metAusTempo(s, u);
+    if (t != null) return Cardio.stufeAusMet(t);
+    return IMMER_INTENSIV.has(u.id) ? 'INTENSIV' : 'MODERAT';
+  },
+  met(s, u) {
+    const t = Cardio.metAusTempo(s, u);
+    if (t != null && (!s.intensitaet || Cardio.stufeAusMet(t) === s.intensitaet)) return t;
+    return Intensitaet[Cardio.stufe(s, u)].met;
+  },
+  /** Erledigte Ausdauer-Sätze als { start, uebungId, name, sekunden, meter, stufe }. */
+  einheiten(workouts, uebungen) {
+    const r = [];
+    for (const w of [...workouts].sort((a, b) => a.start - b.start)) for (const b of w.bloecke) {
+      const u = uebungen[b.uebungId];
+      if (u?.art !== 'CARDIO') continue;
+      for (const s of b.saetze.filter(Rechnung.zaehlt)) {
+        const sek = Cardio.sekunden(s);
+        if (sek > 0) r.push({ start: w.start, uebungId: u.id, name: u.name, sekunden: sek, meter: s.meter, stufe: Cardio.stufe(s, u) });
+      }
+    }
+    return r;
+  },
+  nurCardio: (w, uebungen) => w.bloecke.length > 0 && w.bloecke.every((b) => uebungen[b.uebungId]?.art === 'CARDIO'),
+  mitKraft: (w, uebungen) => w.bloecke.some((b) => uebungen[b.uebungId]?.art !== 'CARDIO' && b.saetze.some(Rechnung.zaehlt)),
+  /** Woche für Trainings mit Start in [von, bis). [tagVon]: Kalendertag eines Zeitpunkts (für Krafttage). */
+  woche(workouts, uebungen, von, bis, ziel, tagVon = (ms) => new Date(ms).toDateString()) {
+    const drin = workouts.filter((w) => w.start >= von && w.start < bis);
+    const e = Cardio.einheiten(drin, uebungen);
+    const min = (l) => l.reduce((a, x) => a + x.sekunden / 60, 0);
+    const zielMinuten = Math.round(e.reduce((a, x) => a + (x.sekunden / 60) * Intensitaet[x.stufe].faktor, 0));
+    const jeSport = new Map();
+    for (const x of e) jeSport.set(x.name, (jeSport.get(x.name) || 0) + x.sekunden / 60);
+    return {
+      minuten: Math.round(min(e)),
+      zielMinuten,
+      intensivMinuten: Math.round(min(e.filter((x) => x.stufe === 'INTENSIV'))),
+      einheiten: e.length,
+      meter: e.reduce((a, x) => a + x.meter, 0),
+      jeSport: [...jeSport].map(([n, m]) => [n, Math.round(m)]).sort((a, b) => b[1] - a[1]),
+      kraftTage: new Set(drin.filter((w) => Cardio.mitKraft(w, uebungen)).map((w) => tagVon(w.start))).size,
+      ziel,
+      anteil: ziel > 0 ? Math.min(1, Math.max(0, zielMinuten / ziel)) : 0,
+      geschafft: zielMinuten >= ziel,
+      offen: Math.max(0, ziel - zielMinuten),
+    };
+  },
+  /** Schnell-Eintrag als Training mit einem Ausdauer-Block. */
+  eintrag(id, u, start, minuten, km, stufe, notiz = '') {
+    const sek = Math.round(minuten * 60);
+    return workout({ id, name: u.name, start, dauerSek: sek, notiz, bloecke: [{ uebungId: u.id, saetze: [{ sekunden: sek, meter: km * 1000, intensitaet: stufe }] }] });
+  },
+  text: (w) => `${w.zielMinuten} von ${w.ziel} min`,
 };
 
 // ---------- Import ----------
