@@ -1286,9 +1286,11 @@ function PlanFragen({ vm }) {
   const [schwer, setSchwer] = useState(alt?.schwerpunkte || []);
   const [minuten, setMinuten] = useState(alt?.minuten || 60);
   const [ausst, setAusst] = useState(alt?.ausstattung || 'STUDIO');
+  const [vorlieben, setVorlieben] = useState(alt?.vorlieben || []);
   const [ersetzen, setErsetzen] = useState(false);
   const fertig = !!ziel && tage.length > 0;
-  const bauen = () => vm.planBauen({ wochentage: [...tage].sort((a, b) => a - b), ziel, schwerpunkte: schwer, minuten, ausstattung: ausst });
+  const bauen = () => vm.planBauen({ wochentage: [...tage].sort((a, b) => a - b), ziel, schwerpunkte: schwer, minuten, ausstattung: ausst,
+    vorlieben: vorlieben.filter((v) => P.Vorliebe[v].orte.includes(ausst)) });
   return html`
     <${Page} titel="Trainingsplan bauen" zurueck=${() => history.back()}
       unten=${html`<${Knopf} deaktiviert=${!fertig} onClick=${() => (vm.plan ? setErsetzen(true) : bauen())}>Plan bauen<//>`}>
@@ -1320,6 +1322,11 @@ function PlanFragen({ vm }) {
           <${Chip} an=${ausst === a} onClick=${() => setAusst(a)}>${P.Ausstattung[a].titel}<//>
           <span class="klein leise">${P.Ausstattung[a].beschreibung}</span></div>`)}
       <//>
+      <${Abschnitt} titel="Am liebsten mit … (freiwillig)">
+        <p class="klein">Mehrere möglich. Übungen damit kommen zuerst, wo es eine passende gibt; sonst nimmt die App die nächstbeste.</p>
+        <div class="chips">${P.VORLIEBEN.filter((v) => P.Vorliebe[v].orte.includes(ausst)).map((v) => html`<${Chip} key=${v} an=${vorlieben.includes(v)}
+          onClick=${() => setVorlieben(vorlieben.includes(v) ? vorlieben.filter((x) => x !== v) : [...vorlieben, v])}>${P.Vorliebe[v].titel}<//>`)}</div>
+      <//>
     <//>
     ${ersetzen && html`<${Dialog} text="Den bisherigen Plan durch einen neuen ersetzen? Getauschte Übungen gehen dabei verloren."
       jaText="Neu bauen" ja=${() => { setErsetzen(false); bauen(); }} nein=${() => setErsetzen(false)} />`}`;
@@ -1333,7 +1340,7 @@ function PlanAnsicht({ vm }) {
     <${Page} titel="Trainingsplan" zurueck=${() => history.back()}
       aktionen=${html`<button class="knopf text" onClick=${() => vm.oeffnen({ typ: 'planFragen' })}>Ändern</button>`}>
       <h2 class="zwischen">${plan.name}</h2>
-      <${Klein} leise>${plan.wunsch.minuten} min · ${P.Ausstattung[plan.wunsch.ausstattung].titel}. Gewichte: Schaffst du in allen Sätzen das obere Ende der Wiederholungen, schlägt die App beim nächsten Mal mehr Gewicht vor. Die Morgen-Erinnerung gibt es in der Android-App; hier steht die Zusammenfassung oben im Tab Training.<//>
+      <${Klein} leise>${plan.wunsch.minuten} min · ${P.Ausstattung[plan.wunsch.ausstattung].titel}${plan.wunsch.vorlieben?.length ? ', am liebsten ' + plan.wunsch.vorlieben.map((v) => P.Vorliebe[v].titel).join(', ') : ''}. Gewichte: Schaffst du in allen Sätzen das obere Ende der Wiederholungen, schlägt die App beim nächsten Mal mehr Gewicht vor. Die Morgen-Erinnerung gibt es in der Android-App; hier steht die Zusammenfassung oben im Tab Training.<//>
       ${plan.tage.map((t, i) => html`
         <section class=${'karte' + (t.wochentag === heute ? ' laeuft' : '')} key=${i + '-' + t.wochentag}>
           <div class="reihe-text"><span class="klein stark-farbe">${P.WOCHENTAGE_LANG[t.wochentag - 1]}${t.wochentag === heute ? ' · heute' : ''}</span><span class="klein">ca. ${P.dauerMinuten(t)} min</span></div>

@@ -36,6 +36,21 @@ ok('gleiche Pläne wie die Android-App', () => {
   }
 });
 
+ok('Vorliebe für Ausstattung', () => {
+  const tage = [1, 2, 4, 5];
+  const anteil = (p, g) => { const u = p.tage.flatMap((t) => t.uebungen).filter((x) => x.slot !== 'cardio'); return u.filter((x) => g.includes(P.geraetVon(katalogNachId[x.uebungId]))).length / u.length; };
+  const ohne = P.bauen({ wochentage: tage, ziel: 'MUSKELAUFBAU' });
+  for (const v of ['MASCHINEN', 'KABEL', 'KURZHANTELN', 'KOERPER']) {
+    const mit = P.bauen({ wochentage: tage, ziel: 'MUSKELAUFBAU', vorlieben: [v] });
+    const g = P.Vorliebe[v].geraete;
+    assert.ok(anteil(mit, g) > anteil(ohne, g) + 0.2, v);
+    assert.ok(anteil(mit, g) >= 0.35, v);
+  }
+  const o = { wochentage: tage, ziel: 'FIT', ausstattung: 'OHNE' };
+  assert.deepEqual(P.bauen(o, 0).tage, P.bauen({ ...o, vorlieben: ['MASCHINEN'] }, 0).tage);
+  assert.deepEqual(P.wunsch({ vorlieben: ['KABEL', 'QUATSCH'] }).vorlieben, ['KABEL']);
+});
+
 ok('ohne Geräte nur Körpergewicht und Band', () => {
   const p = P.bauen({ wochentage: [1, 3, 5], ziel: 'FIT', minuten: 45, ausstattung: 'OHNE' });
   for (const u of p.tage.flatMap((t) => t.uebungen)) {

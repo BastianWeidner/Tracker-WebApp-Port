@@ -34,6 +34,18 @@ export const Ausstattung = {
 };
 export const AUSSTATTUNGEN = Object.keys(Ausstattung);
 
+/** Lieblings-Ausstattung: Übungen damit kommen zuerst, wo es eine passende gibt (null = ganz ohne Gerät). */
+export const Vorliebe = {
+  MASCHINEN: { titel: 'Maschinen', geraete: ['MASCHINE', 'SMITH'], orte: ['STUDIO'] },
+  KABEL: { titel: 'Kabelzug', geraete: ['KABEL'], orte: ['STUDIO'] },
+  LANGHANTEL: { titel: 'Langhantel', geraete: ['LH', 'EZ'], orte: ['STUDIO'] },
+  KURZHANTELN: { titel: 'Kurzhanteln', geraete: ['KH'], orte: ['STUDIO', 'ZUHAUSE'] },
+  KETTLEBELL: { titel: 'Kettlebell', geraete: ['KB'], orte: ['STUDIO', 'ZUHAUSE'] },
+  KOERPER: { titel: 'Körpergewicht', geraete: [null, 'KOERPER'], orte: ['STUDIO', 'ZUHAUSE', 'OHNE'] },
+  BAND: { titel: 'Band', geraete: ['BAND'], orte: ['STUDIO', 'ZUHAUSE', 'OHNE'] },
+};
+export const VORLIEBEN = Object.keys(Vorliebe);
+
 export const WOCHENTAGE = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 export const WOCHENTAGE_LANG = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 
@@ -58,6 +70,7 @@ export const wunsch = (w = {}) => ({
   minuten: zahl(w.minuten, 60),
   ausstattung: w.ausstattung in Ausstattung ? w.ausstattung : 'STUDIO',
   variante: zahl(w.variante, 0),
+  vorlieben: liste(w.vorlieben).filter((v) => v in Vorliebe),
 });
 
 const planUebungLesen = (p = {}) => ({
@@ -173,12 +186,21 @@ const bewegungNachKey = Object.fromEntries(BEWEGUNGEN.map((b) => [b.key, b]));
 const idVon = (b, g) => (g == null ? b.key : `${b.key}-${Geraet[g].kurz}`);
 const basis = (id) => id.split('-')[0];
 
-/** Katalogübung für eine Bewegung mit der gewählten Ausstattung, oder null, wenn es damit nicht geht. */
-export function uebungFuer(key, a) {
+/** Geräte der Vorlieben, die zur Ausstattung passen. */
+export const bevorzugt = (w) => new Set(liste(w.vorlieben).filter((v) => Vorliebe[v]?.orte.includes(w.ausstattung)).flatMap((v) => Vorliebe[v].geraete));
+/** Gerät einer Katalogübung (null = ohne Gerät). */
+export function geraetVon(u) {
+  const k = u.id.includes('-') ? u.id.slice(u.id.indexOf('-') + 1) : '';
+  return Object.keys(Geraet).find((g) => Geraet[g].kurz === k) ?? null;
+}
+
+/** Katalogübung für eine Bewegung mit der gewählten Ausstattung, oder null; Geräte aus [lieber] kommen zuerst. */
+export function uebungFuer(key, a, lieber = new Set()) {
   const b = bewegungNachKey[key];
   if (!b) return null;
   const geht = (g) => b.geraete.includes(g) && (g != null || a === 'STUDIO' || (!NULL_IM_STUDIO.has(key) && (b.art !== 'GEWICHT' || NULL_OHNE_GERAET.has(key))));
-  const g = REIHENFOLGE[a].find(geht);
+  const normal = REIHENFOLGE[a];
+  const g = [...normal.filter((x) => lieber.has(x)), ...normal.filter((x) => !lieber.has(x))].find(geht);
   if (g === undefined) return null;
   return katalogNachId[idVon(b, g)] || null;
 }
@@ -195,7 +217,10 @@ function planUebung(u, slot, z, extra, grund) {
 }
 
 function waehle(slot, w, versatz, schon) {
-  const moeglich = slot.kandidaten.map((k) => uebungFuer(k, w.ausstattung)).filter((u) => u && !schon.has(basis(u.id)));
+  const lieber = bevorzugt(w);
+  const alle = slot.kandidaten.map((k) => uebungFuer(k, w.ausstattung, lieber)).filter((u) => u && !schon.has(basis(u.id)));
+  const passend = lieber.size ? alle.filter((u) => lieber.has(geraetVon(u))) : [];
+  const moeglich = passend.length ? passend : alle;
   return moeglich.length ? moeglich[floorMod(versatz, moeglich.length)] : null;
 }
 
@@ -261,7 +286,7 @@ export function alternativen(plan, tag, p) {
   const cardio = p.slot === 'cardio';
   const keys = cardio ? [...cardioUebungen(plan.wunsch.ausstattung), 'radfahren', 'laufen', 'seilspringen'] : SLOTS[p.slot]?.kandidaten || [];
   const ges = new Set();
-  return [...new Set(keys)].map((k) => (cardio ? katalogNachId[k] : uebungFuer(k, plan.wunsch.ausstattung)))
+  return [...new Set(keys)].map((k) => (cardio ? katalogNachId[k] : uebungFuer(k, plan.wunsch.ausstattung, bevorzugt(plan.wunsch))))
     .filter((u) => u && (u.id === p.uebungId || !andere.has(basis(u.id))))
     .filter((u) => (ges.has(u.id) ? false : (ges.add(u.id), true)));
 }

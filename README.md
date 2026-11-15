@@ -38,7 +38,7 @@ enthält beide Bereiche. Sicherungen der Android-App (Food & Boost bzw. `krafttr
   Satzart (Aufwärmen, Drop, bis Versagen), Abhaken mit Pausen-Timer und Ton, „Letztes Mal“ als Vorschlag,
   neue Bestwerte nach dem Training. Der Bildschirm bleibt während des Trainings an.
 - **Trainingsplan:** „📋 Bau mir einen Trainingsplan“ fragt Häufigkeit und Tage, Ziel (Abnehmen, Muskelaufbau, Kraft,
-  Ausdauer, Fit & gesund), bis zu zwei Schwerpunkte, Dauer und Ausstattung (Studio, zuhause, ohne Geräte) und baut einen
+  Ausdauer, Fit & gesund), bis zu zwei Schwerpunkte, Dauer, Ausstattung (Studio, zuhause, ohne Geräte) und auf Wunsch die Lieblings-Ausstattung (Maschinen, Kabelzug, Langhantel, Kurzhanteln, Kettlebell, Band, Körpergewicht) und baut einen
   Wochenplan aus dem Katalog (gleiche Pläne wie in der Android-App). Übungen tauschen, neu mischen; beim Start schlägt die
   App Gewichte nach doppelter Progression vor. Oben im Tab Training steht das heutige Training mit deiner Steigerung
   (die Morgen-Benachrichtigung gibt es nur in der Android-App).
