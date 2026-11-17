@@ -112,7 +112,18 @@ export async function teilen(leinwand, name) {
   } catch (e) {
     if (e.name === 'AbortError') return false;
   }
-  const url = URL.createObjectURL(datei);
+  herunterladen(datei, name);
+  return true;
+}
+
+/** Leinwand als PNG speichern (Download), z. B. um es in anderen Apps über Bilder zu legen. */
+export async function speichern(leinwand, name) {
+  const blob = await new Promise((ok) => leinwand.toBlob(ok, 'image/png'));
+  herunterladen(blob, name);
+}
+
+function herunterladen(blob, name) {
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = name;
@@ -120,5 +131,4 @@ export async function teilen(leinwand, name) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  return true;
 }

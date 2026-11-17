@@ -12,7 +12,7 @@ import * as Teilbild from './teilbild.js';
 import { profilKurz } from './profil.js';
 import { html, Page, Abschnitt, Hinweis, Klein, Leer, Knopf, Balken, Eingabe, ZahlFeld, Auswahl, Schalter, Zaehler, Chips, Chip, Dialog } from './teile.js';
 
-const VERSION = '1.8.0';
+const VERSION = '1.8.1';
 
 // ---------- Zeit ----------
 
@@ -472,9 +472,10 @@ function TeilenDialog({ titel, werte, dateiTeil, ziele, zu }) {
   return html`<${Dialog} jaText="Teilen" ja=${async () => { if (leinwand) await Teilbild.teilen(leinwand, Teilbild.dateiname(dateiTeil)); zu(); }} nein=${zu}>
     <h2>Als Bild teilen</h2>
     <div class="teilbild-vorschau">${vorschau ? html`<img src=${vorschau} alt="Vorschau" />` : html`<p>…</p>`}</div>
-    <${Klein} leise>PNG mit durchsichtigem Hintergrund, z. B. als Sticker in der Insta-Story.<//>
+    <${Klein} leise>PNG mit durchsichtigem Hintergrund, z. B. als Sticker in der Insta-Story. „Speichern“ lädt das PNG herunter; auf dem iPhone landet es in „Dateien“, in die Fotos kommt es über „Teilen“ → „Bild sichern“.<//>
     <${Schalter} label="Fett zeigen" an=${mitFett} onWechsel=${setMitFett} />
     ${ziele && html`<${Schalter} label="Ziele zeigen" an=${mitZiel} onWechsel=${setMitZiel} hilfe="z. B. „2.450 / 2.900 kcal“" />`}
+    <${Knopf} art="umriss" deaktiviert=${!leinwand} onClick=${async () => { await Teilbild.speichern(leinwand, Teilbild.dateiname(dateiTeil)); zu(); }}>⬇ Speichern<//>
   <//>`;
 }
 
