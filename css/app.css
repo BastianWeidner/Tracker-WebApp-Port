@@ -531,3 +531,7 @@ div.zeile-uebung { cursor: default; }
   font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 13px;
 }
 .satz-typ.intensitaet { width: 44px; font-size: 13px; font-weight: 700; }
+
+/* Teilen-Bild: dunkler Verlauf hinter der Vorschau, damit die weiße Schrift sichtbar ist (das PNG selbst ist durchsichtig). */
+.teilbild-vorschau { border-radius: 16px; padding: 8px; background: linear-gradient(135deg, #5b6b7a, #2b2f36); margin: 8px 0; }
+.teilbild-vorschau img { display: block; width: 100%; height: auto; }
