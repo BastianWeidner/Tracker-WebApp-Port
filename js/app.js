@@ -8,10 +8,11 @@ import * as T from './training-logik.js';
 import { sicherungSpeichern as dateiSichern, dateiLesen, inhaltText, uebernehmen as sicherungInDenSpeicher } from './sicherung.js';
 import { dbSuchen, dbInfo, lebensmittel, dbNamenSuchen } from './daten.js';
 import * as Scan from './scan.js';
+import * as Teilbild from './teilbild.js';
 import { profilKurz } from './profil.js';
 import { html, Page, Abschnitt, Hinweis, Klein, Leer, Knopf, Balken, Eingabe, ZahlFeld, Auswahl, Schalter, Zaehler, Chips, Chip, Dialog } from './teile.js';
 
-const VERSION = '1.7.1';
+const VERSION = '1.8.0';
 
 // ---------- Zeit ----------
 
@@ -403,6 +404,7 @@ function EssenTab({ vm }) {
   const alkohol = eintraege.reduce((a, e) => a + e.alkoholG, 0);
   const koffein = eintraege.reduce((a, e) => a + e.koffeinMg, 0);
   const [alleMikros, setAlleMikros] = useState(false);
+  const [teilen, setTeilen] = useState(false);
   const boost = eintraege.filter((e) => L.istBoost(e.kategorie));
   const [getrunken, trinkZiel] = Ziele.trinken(eintraege, s.koerper, s.einstellungen, trainings.length > 0);
   const verteilung = Ziele.eiweissVerteilung(eintraege, s.koerper, (ms) => new Date(ms).getHours());
@@ -434,7 +436,9 @@ function EssenTab({ vm }) {
         <${Balken} name="Gesättigte Fettsäuren" wert=${summe.gesaettigt} ziel=${ziele.gesaettigtMax} einheit="g" obergrenze />
         <${Balken} name="Salz" wert=${summe.salz} ziel=${ziele.salzMax} einheit="g" obergrenze />
         ${(alkohol > 0 || koffein > 0) && html`<p>${[alkohol > 0 && `Alkohol ${Format.zahl(alkohol)} g (${Format.zahl(alkohol * Pegel.KCAL_PRO_G_ALKOHOL, 0)} kcal)`, koffein > 0 && `Koffein ${Format.zahl(koffein, 0)} mg`].filter(Boolean).join(' · ')}</p>`}
+        ${(summe.kcal > 0 || summe.eiweiss > 0) && html`<${Knopf} art="umriss" onClick=${() => setTeilen(true)}>📤 Als Bild teilen<//>`}
       <//>
+      ${teilen && html`<${TeilenDialog} titel=${tagText(ui.tag)} werte=${summe} dateiTeil=${new Date(ui.tag).toISOString().slice(0, 10)} ziele=${ziele} zu=${() => setTeilen(false)} />`}
       ${auffaellig.length > 0 && html`
         <div class="hinweis fehler">
           <h2>Unplausibel hohe Werte</h2>
@@ -455,6 +459,23 @@ function EssenTab({ vm }) {
       ${!eintraege.length && html`<${Leer}>Noch nichts eingetragen.<//>`}
       ${eintraege.map((e) => html`<${EintragZeile} key=${e.id} e=${e} jetzt=${ui.jetzt} onClick=${() => vm.oeffnen({ typ: 'eintragBearbeiten', id: e.id })} />`)}
     <//>`;
+}
+
+/** Vorschau und Auswahl vor dem Teilen als Bild. [ziele] nur für einen ganzen Tag. */
+function TeilenDialog({ titel, werte, dateiTeil, ziele, zu }) {
+  const [mitFett, setMitFett] = useState(false);
+  const [mitZiel, setMitZiel] = useState(false);
+  const [bereit, setBereit] = useState(false);
+  useEffect(() => { Teilbild.schriftenLaden().then(() => setBereit(true)); }, []);
+  const leinwand = useMemo(() => (bereit ? Teilbild.zeichnen(Teilbild.inhalt(titel, werte, mitFett, mitZiel ? ziele : null)) : null), [bereit, mitFett, mitZiel, titel, werte, ziele]);
+  const vorschau = useMemo(() => leinwand?.toDataURL('image/png'), [leinwand]);
+  return html`<${Dialog} jaText="Teilen" ja=${async () => { if (leinwand) await Teilbild.teilen(leinwand, Teilbild.dateiname(dateiTeil)); zu(); }} nein=${zu}>
+    <h2>Als Bild teilen</h2>
+    <div class="teilbild-vorschau">${vorschau ? html`<img src=${vorschau} alt="Vorschau" />` : html`<p>…</p>`}</div>
+    <${Klein} leise>PNG mit durchsichtigem Hintergrund, z. B. als Sticker in der Insta-Story.<//>
+    <${Schalter} label="Fett zeigen" an=${mitFett} onWechsel=${setMitFett} />
+    ${ziele && html`<${Schalter} label="Ziele zeigen" an=${mitZiel} onWechsel=${setMitZiel} hilfe="z. B. „2.450 / 2.900 kcal“" />`}
+  <//>`;
 }
 
 const TagWahl = ({ vm }) => html`
@@ -775,6 +796,7 @@ function EintragenScreen({ vm, a }) {
   const [zeit, setZeit] = useState(start);
   const [mitEssen, setMitEssen] = useState(alt?.mitEssen ?? false);
   const [loeschen, setLoeschen] = useState(false);
+  const [teilen, setTeilen] = useState(false);
   if (!produkt) return html`<${Page} titel="Nicht gefunden" zurueck=${vm.zurueck}><${Leer}>Das wurde inzwischen gelöscht.<//><//>`;
   const vorschau = L.eintragAus(produkt, '', zeit, menge, mitEssen);
   const e = L.einheit(produkt);
@@ -786,7 +808,7 @@ function EintragenScreen({ vm, a }) {
 
   return html`
     <${Page} titel=${alt ? 'Eintrag ändern' : produkt.name} zurueck=${vm.zurueck}
-      aktionen=${alt && html`<button class="knopf text" onClick=${() => setLoeschen(true)}>Löschen</button>`}
+      aktionen=${alt && html`<button class="knopf text" onClick=${() => setTeilen(true)}>Teilen</button><button class="knopf text" onClick=${() => setLoeschen(true)}>Löschen</button>`}
       unten=${html`<${Knopf} deaktiviert=${!(menge > 0)} onClick=${() => (alt ? vm.eintragAendern(alt, menge, zeit, mitEssen) : vm.eintragen(produkt, menge, zeit, mitEssen))}>${alt ? 'Speichern' : 'Eintragen'}<//>`}>
       ${alt && html`<h2 class="titel">${alt.name}</h2>`}
       <${ZahlFeld} label=${`Menge in ${e}`} wert=${menge} onWert=${setMenge} />
@@ -814,6 +836,7 @@ function EintragenScreen({ vm, a }) {
         ${vorschau.koffeinMg > 0 && html`<p>${Format.zahl(vorschau.koffeinMg, 0)} mg Koffein</p>`}
       <//>
       ${loeschen && html`<${Dialog} text=${`„${alt.name}“ (${uhr(alt.zeit)}) löschen?`} jaText="Löschen" ja=${() => vm.eintragLoeschen(alt.id)} nein=${() => setLoeschen(false)} />`}
+      ${teilen && alt && html`<${TeilenDialog} titel=${alt.name} werte=${n} dateiTeil=${alt.name} ziele=${null} zu=${() => setTeilen(false)} />`}
     <//>`;
 }
 
