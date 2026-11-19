@@ -67,6 +67,7 @@ enthält beide Bereiche. Sicherungen der Android-App (Food & Boost bzw. `krafttr
 - **Profil:** Gewicht, Größe, Jahrgang, Geschlecht und KFA einmal in der Übersicht; gilt für Training und Food & Boost.
   30 Vorlagen (ESN, MORE, Bodylab, Bodybuilding Depot, MyProtein, ohne Marke) mit Richtwerten nach Hersteller- und
   Händlerangaben; Sorten weichen ab, darum sind sie als „Richtwert“ markiert, bis das Etikett gescannt ist.
+- **Rückblick:** Woche, Monat, Quartal, Halbjahr oder Jahr in der Übersicht: Training und Food & Boost mit Kennzahlen, Vergleich zum Zeitraum davor, Erfolgen und Tipps (wie in der Android-App, ohne Benachrichtigung).
 - **Scan:** Barcode live mit der Kamera (ZXing, WebAssembly) und Foto der Nährwerttabelle (Tesseract, deutsch).
 - **Mahlzeiten:** „Döner mit Pommes und eine Cola“ oder ein Rezept (getippt oder fotografiert) wird mit dem
   Bundeslebensmittelschlüssel geschätzt.
@@ -95,7 +96,7 @@ Im Repo liegt nur die App, keine persönlichen Daten.
 Reines HTML/JavaScript ohne Build-Schritt (Preact + htm aus `vendor/`). Nach jeder Änderung
 `python3 werkzeuge/sw-bauen.py` ausführen: Das schreibt `sw.js` mit neuer Version, sonst sehen installierte
 Apps die Änderung nicht. Lokal testen: `python3 -m http.server` im Ordner, dann `http://localhost:8000`.
-Logik-Tests: `node test/logik.test.mjs`, `node test/training.test.mjs`, `node test/figuren.test.mjs`, `node test/einkauf.test.mjs` und `node test/plan.test.mjs`.
+Logik-Tests: `node test/logik.test.mjs`, `node test/training.test.mjs`, `node test/figuren.test.mjs`, `node test/einkauf.test.mjs`, `node test/plan.test.mjs` und `node test/rueckblick.test.mjs`.
 
 Übungsbilder: Die Haltungen entstehen in `werkzeuge/figuren/haltungen.py` (Python, gleiche Rechnung wie
 `js/figuren.js` und die Android-App). Nach Änderungen `python3 export.py` in dem Ordner ausführen und

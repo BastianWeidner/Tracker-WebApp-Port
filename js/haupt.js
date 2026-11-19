@@ -11,8 +11,9 @@ import * as E from './einkauf-logik.js';
 import { ProfilSeite, profilAbgleichen, profilKurz } from './profil.js';
 import { profilGesetzt } from './logik.js';
 import * as Feedback from './feedback.js';
+import { RueckblickSeite } from './rueckblick.js';
 
-const VERSION = '1.8.2';
+const VERSION = '1.9.0';
 
 const BEREICHE = {
   training: { titel: 'Training', symbol: '🏋️', farbe: '#C2185B', text: 'Workouts mit Sätzen und Gewichten, Fortschritt je Übung, Belastung je Muskelgruppe, Import aus Stronger.' },
@@ -27,6 +28,7 @@ function Haupt() {
   // Zuletzt geöffneter Bereich aus der Adresse (#training, #food), sonst die Übersicht.
   const [bereich, setBereich] = useState(() => (location.hash.slice(1) in BEREICHE ? location.hash.slice(1) : null));
   const [profil, setProfil] = useState(false);
+  const [rueckblick, setRueckblick] = useState(false);
   const [bereit, setBereit] = useState(false);
   useEffect(() => { profilAbgleichen().catch((e) => console.warn(e)).finally(() => setBereit(true)); }, []);
 
@@ -52,16 +54,25 @@ function Haupt() {
     window.addEventListener('popstate', pop, { capture: true });
     return () => window.removeEventListener('popstate', pop, { capture: true });
   }, [profil]);
+  // Rückblick liegt wie das Profil über der Übersicht.
+  const rueckblickOeffnen = () => { history.pushState({ rueckblick: true }, ''); setRueckblick(true); };
+  useEffect(() => {
+    if (!rueckblick) return undefined;
+    const pop = (ev) => { ev.stopImmediatePropagation(); setRueckblick(false); };
+    window.addEventListener('popstate', pop, { capture: true });
+    return () => window.removeEventListener('popstate', pop, { capture: true });
+  }, [rueckblick]);
 
   if (!bereit) return html`<div class="laden">Lädt …</div>`;
   if (profil) return html`<${ProfilSeite} schliessen=${() => history.back()} />`;
+  if (rueckblick) return html`<${RueckblickSeite} schliessen=${() => history.back()} />`;
   if (bereich === 'training') return html`<${TrainingApp} zurUebersicht=${zurUebersicht} profilOeffnen=${profilOeffnen} />`;
   if (bereich === 'einkauf') return html`<${EinkaufApp} zurUebersicht=${zurUebersicht} />`;
   if (bereich === 'food') return html`<${FoodApp} zurUebersicht=${zurUebersicht} profilOeffnen=${profilOeffnen} />`;
-  return html`<${Uebersicht} oeffnen=${oeffnen} profilOeffnen=${profilOeffnen} />`;
+  return html`<${Uebersicht} oeffnen=${oeffnen} profilOeffnen=${profilOeffnen} rueckblickOeffnen=${rueckblickOeffnen} />`;
 }
 
-function Uebersicht({ oeffnen, profilOeffnen }) {
+function Uebersicht({ oeffnen, profilOeffnen, rueckblickOeffnen }) {
   const [info, setInfo] = useState({});
   useEffect(() => {
     (async () => {
@@ -103,6 +114,11 @@ function Uebersicht({ oeffnen, profilOeffnen }) {
         <button class="profil-zeile" onClick=${profilOeffnen}>
           <span class="profil-symbol" aria-hidden="true">👤</span>
           <span class="zeile-mitte"><strong>Profil</strong><span class="klein">${info.profil || 'Gewicht, Größe und Alter für Training und Food & Boost eintragen'}</span></span>
+          <span aria-hidden="true">›</span>
+        </button>
+        <button class="profil-zeile" onClick=${rueckblickOeffnen}>
+          <span class="profil-symbol" aria-hidden="true">📊</span>
+          <span class="zeile-mitte"><strong>Rückblick</strong><span class="klein">Woche, Monat, Quartal, Halbjahr oder Jahr: Training und Food & Boost mit Erfolgen und Tipps</span></span>
           <span aria-hidden="true">›</span>
         </button>
         <${Klein} leise>Alles bleibt auf diesem Gerät, es gibt kein Konto. Eine Sicherung aller Bereiche gibt es unter Training → Daten, Food & Boost → Profil oder Einkaufsliste → Mehr.${info.letzte ? ` Letzte Sicherung: ${new Date(info.letzte).toLocaleDateString('de-DE')}.` : ''}<//>
