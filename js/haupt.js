@@ -10,8 +10,9 @@ import { EinkaufApp } from './einkauf.js';
 import * as E from './einkauf-logik.js';
 import { ProfilSeite, profilAbgleichen, profilKurz } from './profil.js';
 import { profilGesetzt } from './logik.js';
+import * as Feedback from './feedback.js';
 
-const VERSION = '1.8.1';
+const VERSION = '1.8.2';
 
 const BEREICHE = {
   training: { titel: 'Training', symbol: '🏋️', farbe: '#C2185B', text: 'Workouts mit Sätzen und Gewichten, Fortschritt je Übung, Belastung je Muskelgruppe, Import aus Stronger.' },
@@ -106,6 +107,8 @@ function Uebersicht({ oeffnen, profilOeffnen }) {
         </button>
         <${Klein} leise>Alles bleibt auf diesem Gerät, es gibt kein Konto. Eine Sicherung aller Bereiche gibt es unter Training → Daten, Food & Boost → Profil oder Einkaufsliste → Mehr.${info.letzte ? ` Letzte Sicherung: ${new Date(info.letzte).toLocaleDateString('de-DE')}.` : ''}<//>
         ${istIOS() && !installiert() && html`<${InstallHinweis} />`}
+        <a class="knopf text feedback" href=${Feedback.link('Gym', VERSION)}>✉️ Feedback geben<//>
+        <${Klein} leise>Freiwillig: öffnet nur deine Mail-App mit einer vorbereiteten Mail an Bastian. Die App selbst schickt nichts.<//>
         <${Klein} leise>Version ${VERSION}<//>
       <//>
     </div></div>`;
