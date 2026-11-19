@@ -12,7 +12,7 @@ import * as Teilbild from './teilbild.js';
 import { profilKurz } from './profil.js';
 import { html, Page, Abschnitt, Hinweis, Klein, Leer, Knopf, Balken, Eingabe, ZahlFeld, Auswahl, Schalter, Zaehler, Chips, Chip, Dialog } from './teile.js';
 
-const VERSION = '1.8.2';
+const VERSION = '1.9.0';
 
 // ---------- Zeit ----------
 

@@ -536,3 +536,22 @@ div.zeile-uebung { cursor: default; }
 .teilbild-vorschau { border-radius: 16px; padding: 8px; background: linear-gradient(135deg, #5b6b7a, #2b2f36); margin: 8px 0; }
 .teilbild-vorschau img { display: block; width: 100%; height: auto; }
 .knopf.feedback { text-decoration: none; align-self: center; }
+
+/* Rückblick (js/rueckblick.js) */
+.rb-blaettern { display: flex; align-items: center; gap: 8px; }
+.rb-pfeil { flex: none; width: 44px; height: 44px; border: 0; border-radius: 22px; background: none; color: var(--primary); font-size: 28px; line-height: 1; cursor: pointer; }
+.rb-pfeil:disabled { color: var(--on-surface); opacity: .3; cursor: default; }
+.rb-wann { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.rb-wann strong { font-size: 17px; }
+.rb-wann .klein { margin: 0; }
+.karte.rb-kopf { background: var(--primary-container); color: var(--on-primary-container); text-align: center; padding: 20px; }
+.karte.rb-kopf h2 { font-size: 22px; margin: 0; }
+.karte.rb-kopf p { margin: 6px 0 0; }
+.karte.rb-abschnitt > * + * { margin-top: 12px; }
+.rb-zahl { display: flex; flex-direction: column; gap: 3px; }
+.rb-zahl .balken-zeile strong { text-align: right; max-width: 60%; }
+.rb-gut { color: var(--primary); }
+.rb-schlecht { color: var(--error); }
+.rb-unter { white-space: pre-line; margin: 0; }
+.rb-lob p { margin: 0 0 4px; color: var(--primary); }
+.rb-tipps p { margin: 0 0 4px; }
