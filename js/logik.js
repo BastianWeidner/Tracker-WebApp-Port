@@ -117,6 +117,11 @@ export function eintragAendern(e, menge, zeit, mitEssen) {
   return { ...eintragAus(eintragAlsProdukt(e), e.id, zeit, menge, mitEssen), produktId: e.produktId };
 }
 
+/** „Nochmal eintragen“: gleiches Produkt, gleiche Menge, neue [id] und [zeit] (wie Android Eintrag.nochmal). */
+export function eintragNochmal(e, id, zeit) {
+  return { ...eintragAendern(e, e.menge, zeit, e.mitEssen), id };
+}
+
 // ---------- Stand ----------
 
 export const STAND_VERSION = 2;
