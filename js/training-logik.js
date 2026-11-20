@@ -89,6 +89,8 @@ export const einstellungen = (e = {}) => ({
   cardioZielMin: Math.round(zahlOder(e.cardioZielMin, 150)),
   // Morgen-Erinnerung zum Trainingsplan: gibt es nur in der Android-App, bleibt hier für die gemeinsame Sicherung erhalten
   planErinnerung: { aktiv: e.planErinnerung?.aktiv === true, minute: Math.round(zahlOder(e.planErinnerung?.minute, 420)) },
+  // Stange für den Scheibenrechner (20, 15 oder 10 kg)
+  stangeKg: [20, 15, 10].includes(Number(e.stangeKg)) ? Number(e.stangeKg) : 20,
 });
 
 export const neuerStand = () => ({ uebungen: [], workouts: [], einstellungen: einstellungen(), laufend: null, plan: null, version: 1 });
@@ -1131,3 +1133,32 @@ This is a request for my data only. Please do not delete my account.
 Kind regards,
 [first and last name]`,
 };
+
+/**
+ * Scheibenrechner (wie Android Scheiben.kt): welche Scheiben je Seite auf die Langhantel müssen.
+ * Gesamtgewicht = Stange + 2 × Scheiben je Seite, von der größten Scheibe abwärts.
+ */
+export const Scheiben = {
+  STANGEN: [20, 15, 10],
+  SCHEIBEN: [25, 20, 15, 10, 5, 2.5, 1.25],
+  /** Langhantel: Katalog-Id endet auf „-lh“, eigene Übungen am Namen erkannt. */
+  langhantel: (u) => u.art === 'GEWICHT' && (u.id.endsWith('-' + Geraet.LH.kurz) || /langhantel|barbell/i.test(u.name)),
+  /** null, wenn das Gewicht nicht über der Stange liegt. [rest]: kg, die insgesamt nicht aufgehen. */
+  rechnen(gesamt, stange = 20, scheiben = Scheiben.SCHEIBEN) {
+    if (!Number.isFinite(gesamt) || gesamt <= stange + 1e-6) return null;
+    let seite = Math.round(((gesamt - stange) / 2) * 1000);
+    const jeSeite = [];
+    for (const p of [...scheiben].sort((a, b) => b - a)) {
+      const g = Math.round(p * 1000);
+      if (g <= 0) continue;
+      while (seite >= g) { jeSeite.push(p); seite -= g; }
+    }
+    return { jeSeite, rest: (seite * 2) / 1000 };
+  },
+  text(e) {
+    const teile = e.jeSeite.length ? e.jeSeite.map((x) => Format.zahl(x, 2)).join(' + ') : 'nichts';
+    const rest = Math.abs(e.rest) > 0.001 ? ` (${Format.zahl(e.rest, 2)} kg gehen nicht auf)` : '';
+    return `je Seite ${teile}${rest}`;
+  },
+};
+

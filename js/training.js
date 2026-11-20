@@ -2,7 +2,7 @@
 // und darüber ein Stapel von Ansichten (Training bearbeiten, Übung wählen, Übung, Import …).
 import { useState, useEffect, useMemo, useRef } from '../vendor/preact-htm.js';
 import * as T from './training-logik.js';
-import { Format, Rechnung, Belastung, Cardio, Intensitaet, INTENSITAETEN, Muskel, MUSKELN, Messart, MESSARTEN, SatzTyp, SATZTYPEN, FELDER, Import, Anleitung, anzahl, muskelText, unterstuetzbar, Teil, TEILE, Teile } from './training-logik.js';
+import { Format, Rechnung, Belastung, Cardio, Intensitaet, INTENSITAETEN, Muskel, MUSKELN, Messart, MESSARTEN, SatzTyp, SATZTYPEN, FELDER, Import, Anleitung, anzahl, muskelText, unterstuetzbar, Teil, TEILE, Teile, Scheiben } from './training-logik.js';
 import { trainingLaden, trainingSpeichern, standLaden, meta, dauerhaftBitten } from './speicher.js';
 import { profilGesetzt } from './logik.js';
 import { sicherungSpeichern, dateiLesen, inhaltText, uebernehmen } from './sicherung.js';
@@ -151,6 +151,8 @@ export function TrainingApp({ zurUebersicht, profilOeffnen }) {
       vm.oeffnen({ typ: 'editor', laufend: false });
     },
     bearbeite(f) {
+      // Jede weitere Änderung verwirft „Rückgängig“
+      if (uiRef.current.rueckgaengig) upd(() => ({ rueckgaengig: null }));
       if (editorLaufend()) { const w = standRef.current.laufend; if (w) aendern((x) => ({ ...x, laufend: f(w) })); }
       else upd((u) => ({ entwurf: u.entwurf && f(u.entwurf) }));
     },
@@ -174,9 +176,26 @@ export function TrainingApp({ zurUebersicht, profilOeffnen }) {
       const neu = l ? { ...l, erledigt: !editorLaufend(), typ: 'NORMAL', rpe: null } : T.satz({ erledigt: !editorLaufend() });
       return { ...bl, saetze: [...bl.saetze, neu] };
     }),
-    satzLoeschen: (b, i) => vm.block(b, (bl) => ({ ...bl, saetze: bl.saetze.filter((_, j) => j !== i) })),
+    satzLoeschen(b, i) {
+      const vorher = aktuell();
+      if (!vorher) return;
+      vm.block(b, (bl) => ({ ...bl, saetze: bl.saetze.filter((_, j) => j !== i) }));
+      upd(() => ({ rueckgaengig: { text: 'Satz entfernt', vorher } }));
+    },
+    /** Holt die zuletzt entfernte Übung bzw. den Satz zurück. */
+    rueckgaengigMachen() {
+      const r = uiRef.current.rueckgaengig;
+      if (r) vm.bearbeite(() => r.vorher);
+    },
+    rueckgaengigWeg: () => upd(() => ({ rueckgaengig: null })),
     blockNotiz: (b, text) => vm.block(b, (bl) => ({ ...bl, notiz: text })),
-    blockLoeschen: (b) => vm.bearbeite((w) => ({ ...w, bloecke: w.bloecke.filter((_, j) => j !== b) })),
+    blockLoeschen(b) {
+      const vorher = aktuell();
+      if (!vorher) return;
+      const name = vm.uebungen[vorher.bloecke[b]?.uebungId]?.name || 'Übung';
+      vm.bearbeite((w) => ({ ...w, bloecke: w.bloecke.filter((_, j) => j !== b) }));
+      upd(() => ({ rueckgaengig: { text: `${name} entfernt`, vorher } }));
+    },
     blockVerschieben: (b, hoch) => vm.bearbeite((w) => {
       const z = hoch ? b - 1 : b + 1;
       if (z < 0 || z >= w.bloecke.length) return w;
@@ -568,6 +587,8 @@ function EditorScreen({ vm, laufend }) {
   const w = laufend ? vm.s.laufend : vm.ui.entwurf;
   const [verwerfen, setVerwerfen] = useState(false);
   useWachBleiben(laufend);
+  // Beim Verlassen des Editors gibt es nichts mehr zurückzuholen
+  useEffect(() => () => vm.rueckgaengigWeg(), []);
   if (!w) return html`<${Weg} vm=${vm} />`;
   const rest = Math.max(0, Math.ceil((vm.ui.pauseBis - vm.ui.jetzt) / 1000));
   return html`
@@ -588,6 +609,7 @@ function EditorScreen({ vm, laufend }) {
       ${w.bloecke.map((b, i) => html`<${BlockKarte} key=${i + b.uebungId} i=${i} b=${b} w=${w} laufend=${laufend} vm=${vm} />`)}
       <${Knopf} art="umriss" onClick=${() => vm.oeffnen({ typ: 'uebungWaehlen' })}>+ Übung<//>
       <${Eingabe} label="Notiz zum Training" wert=${w.notiz} onInput=${vm.trainingNotiz} mehrzeilig />
+      ${vm.ui.rueckgaengig && html`<${RueckgaengigLeiste} r=${vm.ui.rueckgaengig} vm=${vm} />`}
       ${verwerfen && html`<${Dialog} text="Training verwerfen? Alle Sätze dieses Trainings gehen verloren." jaText="Verwerfen"
         ja=${() => { setVerwerfen(false); vm.trainingVerwerfen(); }} nein=${() => setVerwerfen(false)} />`}
     <//>`;
@@ -603,6 +625,7 @@ function BlockKarte({ i, b, w, laufend, vm }) {
     setHilfe(an);
     vm.block(i, (bl) => ({ ...bl, saetze: bl.saetze.map((x) => (x.gewicht ? { ...x, gewicht: an ? -Math.abs(x.gewicht) : Math.abs(x.gewicht) } : x)) }));
   };
+  const [scheiben, setScheiben] = useState(false);
   let nr = 0;
   return html`
     <div class="karte block">
@@ -623,8 +646,31 @@ function BlockKarte({ i, b, w, laufend, vm }) {
         return html`<${SatzZeile} key=${j} nr=${nr} s=${x} art=${u.art} hilfe=${hilfe} laufend=${laufend} koerper=${vm.koerper}
           onChange=${(neu) => vm.satzAendern(i, j, neu)} onHaken=${() => vm.satzAbhaken(i, j)} onLoeschen=${() => vm.satzLoeschen(i, j)} />`;
       })}
-      <button class="knopf text" onClick=${() => vm.satzHinzu(i)}>+ Satz</button>
+      ${Scheiben.langhantel(u)
+        ? html`<div class="reihe-zwischen">
+            <button class="knopf text" onClick=${() => vm.satzHinzu(i)}>+ Satz</button>
+            <button class="knopf text" onClick=${() => setScheiben(!scheiben)}>${scheiben ? 'Scheiben ausblenden' : '🏋 Scheiben'}</button>
+          </div>
+          ${scheiben && html`<${ScheibenAnzeige} b=${b} vm=${vm} />`}`
+        : html`<button class="knopf text" onClick=${() => vm.satzHinzu(i)}>+ Satz</button>`}
     </div>`;
+}
+
+/** Scheiben je Seite für jedes eingetragene Gewicht, dazu die Wahl der Stange. */
+function ScheibenAnzeige({ b, vm }) {
+  const stange = vm.s.einstellungen.stangeKg || 20;
+  const gewichte = [...new Set(b.saetze.map((x) => x.gewicht).filter((g) => g > 0))];
+  return html`<div class="scheiben">
+    <${Chips}><span class="klein">Stange</span>${Scheiben.STANGEN.map((kg) => html`<${Chip} key=${kg} an=${stange === kg} onClick=${() => vm.einstellungen((e) => ({ ...e, stangeKg: kg }))}>${kg} kg<//>`)}<//>
+    ${!gewichte.length && html`<${Klein}>Trag ein Gewicht ein, dann steht hier, was auf jede Seite kommt.<//>`}
+    ${gewichte.map((kg) => { const e = Scheiben.rechnen(kg, stange); return html`<div key=${kg}>${Format.zahl(kg, 2)} kg: ${e ? Scheiben.text(e) : 'nur die Stange'}</div>`; })}
+  </div>`;
+}
+
+/** Kurze Leiste nach dem Entfernen; verschwindet nach 6 Sekunden oder mit der nächsten Änderung. */
+function RueckgaengigLeiste({ r, vm }) {
+  useEffect(() => { const t = setTimeout(() => vm.rueckgaengigWeg(), 6000); return () => clearTimeout(t); }, [r]);
+  return html`<div class="rueckgaengig" role="status"><span>${r.text}</span><button class="knopf text" onClick=${vm.rueckgaengigMachen}>Rückgängig</button></div>`;
 }
 
 function SatzZeile({ nr, s, art, hilfe, laufend, koerper, onChange, onHaken, onLoeschen }) {

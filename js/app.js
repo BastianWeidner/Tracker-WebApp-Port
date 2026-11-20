@@ -12,7 +12,7 @@ import * as Teilbild from './teilbild.js';
 import { profilKurz } from './profil.js';
 import { html, Page, Abschnitt, Hinweis, Klein, Leer, Knopf, Balken, Eingabe, ZahlFeld, Auswahl, Schalter, Zaehler, Chips, Chip, Dialog } from './teile.js';
 
-const VERSION = '1.10.0';
+const VERSION = '1.11.0';
 
 // ---------- Zeit ----------
 
@@ -121,6 +121,12 @@ export function FoodApp({ zurUebersicht, profilOeffnen }) {
       const e = L.eintragAus(p, neueId(), zeit, menge, mitEssen);
       aendern((x) => S.eintragen(x, e));
       upd(() => ({ letzter: e, jetzt: Date.now(), stapel: [] }));
+    },
+    /** Denselben Eintrag jetzt noch einmal; die Ansicht springt auf heute. */
+    nochmal(alt) {
+      const e = L.eintragNochmal(alt, neueId(), Date.now());
+      aendern((x) => S.eintragen(x, e));
+      upd(() => ({ letzter: e, jetzt: Date.now(), stapel: [], tag: heute() }));
     },
     eintragAendern(e, menge, zeit, mitEssen) {
       aendern((x) => S.eintragAendern(x, L.eintragAendern(e, menge, zeit, mitEssen)));
@@ -415,10 +421,15 @@ function EssenTab({ vm }) {
   const g = s.koerper.geschlecht;
   const mitWert = Mikros.sortiert(Mikros.alle.filter((m) => Mikros.referenz(m, g) > 0 && (summe.mikros[m.key] || 0) > 0));
   const zeigen = alleMikros ? Mikros.sortiert(Mikros.alle.filter((m) => Mikros.referenz(m, g) > 0)) : mitWert;
+  // Favoriten (★ unter „Produkte“) als Schnellknöpfe; öffnet Menge und Uhrzeit für den gezeigten Tag (Wunsch Bastian 2026-11-20).
+  const favoriten = s.produkte.filter((p) => p.favorit);
 
   return html`
     <${Page} titel=${tagText(ui.tag)} aktionen=${html`<${TagWahl} vm=${vm} />`}
-      unten=${html`<div class="reihe">
+      unten=${html`${favoriten.length > 0 && html`<div class="favoriten-leiste">
+          ${favoriten.map((p) => html`<${Chip} key=${p.id} onClick=${() => vm.oeffnen({ typ: 'eintragen', produktId: p.id })}>★ ${p.name}<//>`)}
+        </div>`}
+        <div class="reihe">
         <${Knopf} art="umriss" onClick=${() => vm.oeffnen({ typ: 'scan', eintragen: true, barcode: true })}>📷 Scan<//>
         <${Knopf} art="umriss" onClick=${() => vm.oeffnen({ typ: 'mahlzeitStart', eintragen: true })}>🍲 Mahlzeit<//>
         <${Knopf} onClick=${() => vm.oeffnen({ typ: 'auswahl' })}>+ Eintrag<//>
@@ -504,9 +515,17 @@ function TeilenDialog({ titel, werte, dateiTeil, ziele, zu }) {
   <//>`;
 }
 
+const datumWert = (t) => { const d = new Date(t); return `${d.getFullYear()}-${zwei(d.getMonth() + 1)}-${zwei(d.getDate())}`; };
+
+/** ‹ und › blättern, 📅 öffnet den Kalender des Geräts, „Heute“ springt zurück (Wunsch Bastian 2026-11-20). */
 const TagWahl = ({ vm }) => html`
-  <button class="knopf text" onClick=${() => vm.tag(tagPlus(vm.ui.tag, -1))}>‹ Tag</button>
-  <button class="knopf text" disabled=${vm.ui.tag >= heute()} onClick=${() => vm.tag(tagPlus(vm.ui.tag, 1))}>Tag ›</button>`;
+  <button class="knopf text eng" aria-label="Tag zurück" onClick=${() => vm.tag(tagPlus(vm.ui.tag, -1))}>‹</button>
+  <label class="knopf text eng kalender" aria-label="Tag im Kalender wählen">📅
+    <input type="date" max=${datumWert(Date.now())} value=${datumWert(vm.ui.tag)}
+      onChange=${(ev) => { const [j, m, t] = ev.target.value.split('-').map(Number); if (j && m && t) vm.tag(Math.min(new Date(j, m - 1, t).getTime(), heute())); }} />
+  </label>
+  <button class="knopf text eng" aria-label="Tag vor" disabled=${vm.ui.tag >= heute()} onClick=${() => vm.tag(tagPlus(vm.ui.tag, 1))}>›</button>
+  ${vm.ui.tag < heute() && html`<button class="knopf text eng" onClick=${() => vm.tag(heute())}>Heute</button>`}`;
 
 function SicherungsErinnerung({ vm }) {
   const n = vm.s.eintraege.length;
@@ -834,7 +853,7 @@ function EintragenScreen({ vm, a }) {
 
   return html`
     <${Page} titel=${alt ? 'Eintrag ändern' : produkt.name} zurueck=${vm.zurueck}
-      aktionen=${alt && html`<button class="knopf text" onClick=${() => setTeilen(true)}>Teilen</button><button class="knopf text" onClick=${() => setLoeschen(true)}>Löschen</button>`}
+      aktionen=${alt && html`<button class="knopf text" onClick=${() => vm.nochmal(alt)}>Nochmal</button><button class="knopf text" onClick=${() => setTeilen(true)}>Teilen</button><button class="knopf text" onClick=${() => setLoeschen(true)}>Löschen</button>`}
       unten=${html`<${Knopf} deaktiviert=${!(menge > 0)} onClick=${() => (alt ? vm.eintragAendern(alt, menge, zeit, mitEssen) : vm.eintragen(produkt, menge, zeit, mitEssen))}>${alt ? 'Speichern' : 'Eintragen'}<//>`}>
       ${alt && html`<h2 class="titel">${alt.name}</h2>`}
       <${ZahlFeld} label=${`Menge in ${e}`} wert=${menge} onWert=${setMenge} />
@@ -917,7 +936,7 @@ function ProduktScreen({ vm, a }) {
           setP({ ...p, portion: neu, naehrwerte: L.nwMal(p.naehrwerte, k), koffeinMgPro100: p.koffeinMgPro100 * k });
         } else setP({ ...p, portion: neu });
       }} />
-      <${Schalter} label="Favorit (Schnellknopf auf „Pegel“)" an=${p.favorit} onWechsel=${(v) => setP({ ...p, favorit: v })} />
+      <${Schalter} label="Favorit (Schnellknopf auf „Pegel“ und im Essen-Tab)" an=${p.favorit} onWechsel=${(v) => setP({ ...p, favorit: v })} />
       ${p.portion > 0 && html`<${Schalter} label=${`Werte je ${L.portionText(p)} eingeben`} an=${jePortion} onWechsel=${setJePortion} hilfe=${jePortion ? `wie auf dem Etikett, gespeichert wird pro 100 ${e}` : null} />`}
       <${Abschnitt} titel=${`Makros ${bezug}`}>
         ${MAKRO_FELDER.map(([k, label]) => html`<${ZahlFeld} key=${k + f} label=${label} wert=${r6(p.naehrwerte[k] * f)} onWert=${(v) => nwSetzen(k, v / f)} hilfe=${hilfe(k)} />`)}

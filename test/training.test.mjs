@@ -402,3 +402,33 @@ ok('Teilmuskeln: jede Bewegung zugeordnet, Gruppen passen, eigene Übungen belas
     assert.equal(Format.satz(st.workouts[0].bloecke[0].saetze[0], 'CARDIO'), '10 min 🥵');
   });
 }
+
+// Scheibenrechner (ScheibenTest.kt)
+{
+  const { Scheiben } = T;
+  ok('Scheiben je Seite von groß nach klein', () => {
+    const e = Scheiben.rechnen(102.5);
+    assert.deepEqual(e.jeSeite, [25, 15, 1.25]);
+    assert.equal(e.rest, 0);
+    assert.equal(Scheiben.text(e), 'je Seite 25 + 15 + 1,25');
+  });
+  ok('Scheiben mit anderer Stange', () => assert.deepEqual(Scheiben.rechnen(55, 15).jeSeite, [20]));
+  ok('Scheiben: nichts über der Stange', () => { assert.equal(Scheiben.rechnen(20), null); assert.equal(Scheiben.rechnen(12), null); });
+  ok('Scheiben: Rest, wenn es nicht aufgeht', () => {
+    const e = Scheiben.rechnen(63);
+    assert.deepEqual(e.jeSeite, [20, 1.25]);
+    assert.equal(Scheiben.text(e), 'je Seite 20 + 1,25 (0,5 kg gehen nicht auf)');
+  });
+  ok('Scheiben: Langhantel erkennen', () => {
+    assert.equal(Scheiben.langhantel(T.uebung({ id: 'kniebeuge-lh', name: 'Kniebeuge (Langhantel)' })), true);
+    assert.equal(Scheiben.langhantel(T.uebung({ id: 'e:1', name: 'Langhantel-Rudern eng' })), true);
+    assert.equal(Scheiben.langhantel(T.uebung({ id: 'bankdruecken-kh', name: 'Bankdrücken (Kurzhantel)' })), false);
+    assert.equal(Scheiben.langhantel(T.uebung({ id: 'klimmzug', name: 'Klimmzug', art: 'KOERPER' })), false);
+  });
+  ok('Stange in den Einstellungen', () => {
+    assert.equal(T.einstellungen({}).stangeKg, 20);
+    assert.equal(T.einstellungen({ stangeKg: 15 }).stangeKg, 15);
+    assert.equal(T.einstellungen({ stangeKg: 7 }).stangeKg, 20);
+  });
+}
+

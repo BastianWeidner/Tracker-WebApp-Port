@@ -145,3 +145,15 @@ ok('Quellen: anteilig, größte zuerst, Mikros, Prozent', () => {
   assert.equal(L.Quellen.prozent(0.004), '< 1 %');
   assert.equal(L.Quellen.prozent(0), '0 %');
 });
+
+ok('Nochmal eintragen: gleiche Menge und Werte, neue Id und Zeit', () => {
+  const p = L.produkt({ id: 'p1', name: 'Skyr', portion: 150, naehrwerte: { kcal: 60, eiweiss: 11 } });
+  const alt = L.eintragAus(p, 'a', 1000, 300, false);
+  const neu = L.eintragNochmal(alt, 'b', 5000);
+  assert.equal(neu.id, 'b');
+  assert.equal(neu.zeit, 5000);
+  assert.equal(neu.menge, 300);
+  assert.equal(neu.produktId, 'p1');
+  assert.equal(neu.naehrwerte.kcal, alt.naehrwerte.kcal);
+  assert.equal(neu.naehrwerte.eiweiss, alt.naehrwerte.eiweiss);
+});

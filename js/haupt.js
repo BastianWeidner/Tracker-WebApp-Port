@@ -13,7 +13,7 @@ import { profilGesetzt } from './logik.js';
 import * as Feedback from './feedback.js';
 import { RueckblickSeite } from './rueckblick.js';
 
-const VERSION = '1.10.0';
+const VERSION = '1.11.0';
 
 const BEREICHE = {
   training: { titel: 'Training', symbol: '🏋️', farbe: '#C2185B', text: 'Workouts mit Sätzen und Gewichten, Fortschritt je Übung, Belastung je Muskelgruppe, Import aus Stronger.' },
