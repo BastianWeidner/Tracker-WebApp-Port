@@ -131,3 +131,17 @@ ok('Vegane Produkte aus Europa in der Datenbank', () => {
     assert.equal(L.dbLesen(code, zeile.slice(n.length + 1)).name, name);
   }
 });
+ok('Quellen: anteilig, größte zuerst, Mikros, Prozent', () => {
+  const e = (id, zeit, eiweiss, mikros = {}) => ({ id, zeit, name: id, naehrwerte: L.naehrwerte({ eiweiss, mikros }) });
+  const a = L.Quellen.aufteilen([e('Frühstück', 1, 30), e('Mittag', 2, 50), e('Wasser', 3, 0), e('Whey', 4, 20)], 'eiweiss');
+  assert.equal(a.summe, 100);
+  assert.deepEqual(a.quellen.map((q) => q.eintrag.name), ['Mittag', 'Frühstück', 'Whey']);
+  assert.deepEqual(a.quellen.map((q) => q.anteil), [0.5, 0.3, 0.2]);
+  assert.deepEqual(L.Quellen.aufteilen([e('spaet', 9, 10), e('frueh', 1, 10)], 'eiweiss').quellen.map((q) => q.eintrag.name), ['frueh', 'spaet']);
+  assert.deepEqual(L.Quellen.aufteilen([e('x', 1, 0)], 'eiweiss'), { summe: 0, quellen: [] });
+  const m = L.Quellen.aufteilen([e('A', 1, 0, { vitc: 30 }), e('B', 2, 0, { vitc: 90 }), e('C', 3, 5)], 'mikro:vitc');
+  assert.deepEqual(m.quellen.map((q) => q.eintrag.name), ['B', 'A']);
+  assert.equal(L.Quellen.prozent(m.quellen[0].anteil), '75 %');
+  assert.equal(L.Quellen.prozent(0.004), '< 1 %');
+  assert.equal(L.Quellen.prozent(0), '0 %');
+});
