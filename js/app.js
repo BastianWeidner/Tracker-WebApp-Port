@@ -12,7 +12,7 @@ import * as Teilbild from './teilbild.js';
 import { profilKurz } from './profil.js';
 import { html, Page, Abschnitt, Hinweis, Klein, Leer, Knopf, Balken, Eingabe, ZahlFeld, Auswahl, Schalter, Zaehler, Chips, Chip, Dialog } from './teile.js';
 
-const VERSION = '1.9.0';
+const VERSION = '1.10.0';
 
 // ---------- Zeit ----------
 
@@ -405,6 +405,9 @@ function EssenTab({ vm }) {
   const koffein = eintraege.reduce((a, e) => a + e.koffeinMg, 0);
   const [alleMikros, setAlleMikros] = useState(false);
   const [teilen, setTeilen] = useState(false);
+  // Antippen eines Nährwerts zeigt die Quellen anteilig (Wunsch Bastian 2026-11-19).
+  const [quellen, setQuellen] = useState(null);
+  const q = (name, einheit, wert) => () => setQuellen({ name, einheit, aufteilung: L.Quellen.aufteilen(eintraege, wert) });
   const boost = eintraege.filter((e) => L.istBoost(e.kategorie));
   const [getrunken, trinkZiel] = Ziele.trinken(eintraege, s.koerper, s.einstellungen, trainings.length > 0);
   const verteilung = Ziele.eiweissVerteilung(eintraege, s.koerper, (ms) => new Date(ms).getHours());
@@ -422,22 +425,23 @@ function EssenTab({ vm }) {
       </div>`}>
       <${SicherungsErinnerung} vm=${vm} />
       <${Abschnitt} titel="Energie und Makros">
-        <${Balken} name="Kalorien" wert=${summe.kcal} ziel=${ziele.kcal} einheit="kcal" gross />
+        <${Balken} name="Kalorien" wert=${summe.kcal} ziel=${ziele.kcal} einheit="kcal" gross onClick=${q('Kalorien', 'kcal', 'kcal')} />
         ${trainings.length > 0 && html`<${Klein}>Training: ${trainings.map((t) => `${t.name || 'Training'} ~${t.kcal} kcal`).join(', ')}${s.einstellungen.trainingEinrechnen ? ' (im Ziel enthalten)' : ' (nicht eingerechnet, siehe Profil)'}<//>`}
-        <${Balken} name="Eiweiß" wert=${summe.eiweiss} ziel=${ziele.eiweiss} einheit="g" />
-        <${Balken} name="Kohlenhydrate" wert=${summe.kohlenhydrate} ziel=${ziele.kohlenhydrate} einheit="g" />
-        <${Balken} name="Fett" wert=${summe.fett} ziel=${ziele.fett} einheit="g" />
-        <${Balken} name="Ballaststoffe" wert=${summe.ballaststoffe} ziel=${ziele.ballaststoffe} einheit="g" />
+        <${Balken} name="Eiweiß" wert=${summe.eiweiss} ziel=${ziele.eiweiss} einheit="g" onClick=${q('Eiweiß', 'g', 'eiweiss')} />
+        <${Balken} name="Kohlenhydrate" wert=${summe.kohlenhydrate} ziel=${ziele.kohlenhydrate} einheit="g" onClick=${q('Kohlenhydrate', 'g', 'kohlenhydrate')} />
+        <${Balken} name="Fett" wert=${summe.fett} ziel=${ziele.fett} einheit="g" onClick=${q('Fett', 'g', 'fett')} />
+        <${Balken} name="Ballaststoffe" wert=${summe.ballaststoffe} ziel=${ziele.ballaststoffe} einheit="g" onClick=${q('Ballaststoffe', 'g', 'ballaststoffe')} />
         ${boost.length > 0 && html`<${Klein}>Davon aus Supplements, Proteinen und Boostern: ${Format.zahl(boost.reduce((a, e) => a + e.naehrwerte.kcal, 0), 0)} kcal, ${Format.zahl(boost.reduce((a, e) => a + e.naehrwerte.eiweiss, 0))} g Eiweiß (Details unter „Boost“)<//>`}
         <${Balken} name="Trinken (ohne Alkohol)" wert=${getrunken} ziel=${trinkZiel} einheit="ml" />
         ${summe.eiweiss > 0 && html`<${Klein}>Eiweiß über den Tag: ${verteilung.abschnitte.map(([n, v]) => `${n} ${Format.zahl(v, 0)} g${v >= verteilung.zielJeMahlzeit ? ' ✓' : ''}`).join(' · ')}. Gut sind 3 bis 4 Mahlzeiten mit je etwa ${Format.zahl(verteilung.zielJeMahlzeit, 0)} g.<//>`}
         <h3>Höchstens</h3>
-        <${Balken} name="Zucker" wert=${summe.zucker} ziel=${ziele.zuckerMax} einheit="g" obergrenze />
-        <${Balken} name="Gesättigte Fettsäuren" wert=${summe.gesaettigt} ziel=${ziele.gesaettigtMax} einheit="g" obergrenze />
-        <${Balken} name="Salz" wert=${summe.salz} ziel=${ziele.salzMax} einheit="g" obergrenze />
+        <${Balken} name="Zucker" wert=${summe.zucker} ziel=${ziele.zuckerMax} einheit="g" obergrenze onClick=${q('Zucker', 'g', 'zucker')} />
+        <${Balken} name="Gesättigte Fettsäuren" wert=${summe.gesaettigt} ziel=${ziele.gesaettigtMax} einheit="g" obergrenze onClick=${q('Gesättigte Fettsäuren', 'g', 'gesaettigt')} />
+        <${Balken} name="Salz" wert=${summe.salz} ziel=${ziele.salzMax} einheit="g" obergrenze onClick=${q('Salz', 'g', 'salz')} />
         ${(alkohol > 0 || koffein > 0) && html`<p>${[alkohol > 0 && `Alkohol ${Format.zahl(alkohol)} g (${Format.zahl(alkohol * Pegel.KCAL_PRO_G_ALKOHOL, 0)} kcal)`, koffein > 0 && `Koffein ${Format.zahl(koffein, 0)} mg`].filter(Boolean).join(' · ')}</p>`}
         ${(summe.kcal > 0 || summe.eiweiss > 0) && html`<${Knopf} art="umriss" onClick=${() => setTeilen(true)}>📤 Als Bild teilen<//>`}
       <//>
+      ${quellen && html`<${QuellenDialog} auswahl=${quellen} jetzt=${ui.jetzt} zu=${() => setQuellen(null)} eintrag=${(id) => { setQuellen(null); vm.oeffnen({ typ: 'eintragBearbeiten', id }); }} />`}
       ${teilen && html`<${TeilenDialog} titel=${tagText(ui.tag)} werte=${summe} dateiTeil=${new Date(ui.tag).toISOString().slice(0, 10)} ziele=${ziele} zu=${() => setTeilen(false)} />`}
       ${auffaellig.length > 0 && html`
         <div class="hinweis fehler">
@@ -451,13 +455,34 @@ function EssenTab({ vm }) {
         </div>`}
       <${Abschnitt} titel="Vitamine und Mineralstoffe">
         ${!mitWert.length && !alleMikros && html`<${Klein}>Noch keine Angaben. Mikros zählen, wenn sie auf dem Etikett stehen oder beim Produkt eingetragen sind.<//>`}
-        ${zeigen.map((m) => html`<${Balken} name=${m.name} wert=${summe.mikros[m.key] || 0} ziel=${Mikros.referenz(m, g)} einheit=${m.einheit} />`)}
+        ${zeigen.map((m) => html`<${Balken} name=${m.name} wert=${summe.mikros[m.key] || 0} ziel=${Mikros.referenz(m, g)} einheit=${m.einheit} onClick=${q(m.name, m.einheit, 'mikro:' + m.key)} />`)}
         <button class="knopf text" onClick=${() => setAlleMikros(!alleMikros)}>${alleMikros ? 'Nur vorhandene zeigen' : 'Alle Referenzwerte zeigen'}</button>
-        <${Klein} leise>Referenzwerte der DGE für Erwachsene. Gezählt wird nur, was bei den Produkten angegeben ist; Obst, Gemüse und Co. ohne Etikett fehlen oft.<//>
+        <${Klein} leise>Tipp: Einen Wert antippen zeigt, woher er kommt. Referenzwerte der DGE für Erwachsene. Gezählt wird nur, was bei den Produkten angegeben ist; Obst, Gemüse und Co. ohne Etikett fehlen oft.<//>
       <//>
       <h3 class="zwischen">Einträge</h3>
       ${!eintraege.length && html`<${Leer}>Noch nichts eingetragen.<//>`}
       ${eintraege.map((e) => html`<${EintragZeile} key=${e.id} e=${e} jetzt=${ui.jetzt} onClick=${() => vm.oeffnen({ typ: 'eintragBearbeiten', id: e.id })} />`)}
+    <//>`;
+}
+
+/** Quellen eines Nährwerts anteilig; Antippen einer Zeile öffnet den Eintrag. */
+function QuellenDialog({ auswahl, jetzt, zu, eintrag }) {
+  const { summe, quellen } = auswahl.aufteilung;
+  const menge = (d) => Format.wert(d, d < 10 ? 1 : 0);
+  return html`
+    <${Dialog} ja=${zu} jaText="Schließen">
+      <h2>${auswahl.name}: woher?</h2>
+      ${!quellen.length && html`<p>An diesem Tag hat noch kein Eintrag ${auswahl.name} geliefert.</p>`}
+      ${quellen.length > 0 && html`
+        <${Klein} leise>Zusammen ${menge(summe)} ${auswahl.einheit} aus ${quellen.length} ${quellen.length === 1 ? 'Eintrag' : 'Einträgen'}<//>
+        <div class="quellen">
+          ${quellen.map((x) => html`
+            <button key=${x.eintrag.id} class="balken balken-knopf quelle" onClick=${() => eintrag(x.eintrag.id)}>
+              <div class="balken-zeile"><span><span class="leise">${uhr(x.eintrag.zeit, jetzt).slice(0, 5)}</span> ${x.eintrag.name}</span><span>${menge(x.wert)} ${auswahl.einheit} · ${L.Quellen.prozent(x.anteil)}</span></div>
+              <div class="balken-bahn"><div class="balken-fuell" style=${{ width: Math.min(100, x.anteil * 100) + '%' }}></div></div>
+            </button>`)}
+        </div>
+        <${Klein} leise>Antippen öffnet den Eintrag.<//>`}
     <//>`;
 }
 

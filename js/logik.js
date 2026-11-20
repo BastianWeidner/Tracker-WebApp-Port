@@ -395,6 +395,30 @@ export const Ziele = {
 
 // ---------- Format ----------
 
+/**
+ * Wunsch Bastian 2026-11-19 (wie Android Quellen.kt): beim Antippen eines Nährwerts zeigen, woher er kommt,
+ * mit Menge und Anteil. Jeder Eintrag des Tages ist eine Quelle; größter Anteil zuerst, bei Gleichstand der frühere.
+ * [wert]: Schlüssel aus naehrwerte (z. B. 'eiweiss'), 'mikro:<key>' oder Funktion (Eintrag) => Zahl.
+ */
+export const Quellen = {
+  aufteilen(eintraege, wert) {
+    const f = typeof wert === 'function' ? wert
+      : wert.startsWith('mikro:') ? (e) => (e.naehrwerte.mikros || {})[wert.slice(6)] || 0
+      : (e) => e.naehrwerte[wert] || 0;
+    const mit = eintraege.map((e) => [e, f(e)]).filter(([, w]) => Number.isFinite(w) && w > 0);
+    const summe = mit.reduce((a, [, w]) => a + w, 0);
+    if (summe <= 0) return { summe: 0, quellen: [] };
+    mit.sort((a, b) => b[1] - a[1] || a[0].zeit - b[0].zeit);
+    return { summe, quellen: mit.map(([eintrag, w]) => ({ eintrag, wert: w, anteil: w / summe })) };
+  },
+  /** Ganze Prozent; unter 1 % als „< 1 %“, damit kleine Quellen nicht wie 0 aussehen. */
+  prozent(anteil) {
+    if (!(anteil > 0)) return '0 %';
+    if (anteil < 0.005) return '< 1 %';
+    return `${Format.zahl(anteil * 100, 0)} %`;
+  },
+};
+
 export const Format = {
   zahl(d, stellen = 1) {
     if (!Number.isFinite(d)) return '–';

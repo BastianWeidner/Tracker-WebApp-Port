@@ -32,14 +32,16 @@ export function Knopf({ onClick, children, art = 'gross', deaktiviert, klasse = 
 }
 
 /** Wert gegen Ziel. [obergrenze]: Überschreiten ist rot (Zucker, Salz …), sonst ist Erreichen gut. */
-export function Balken({ name, wert, ziel, einheit, obergrenze, gross }) {
+export function Balken({ name, wert, ziel, einheit, obergrenze, gross, onClick }) {
   const anteil = ziel > 0 ? wert / ziel : 0;
   const ueber = obergrenze && anteil > 1;
-  return html`
-    <div class=${'balken' + (gross ? ' gross' : '') + (ueber ? ' ueber' : '')}>
+  const inhalt = html`
       <div class="balken-zeile"><span>${name}</span><span>${Format.wert(wert, wert < 10 ? 1 : 0)} / ${Format.wert(ziel, ziel < 10 ? 1 : 0)} ${einheit}</span></div>
-      <div class="balken-bahn"><div class="balken-fuell" style=${{ width: Math.min(100, Math.max(0, anteil * 100)) + '%' }}></div></div>
-    </div>`;
+      <div class="balken-bahn"><div class="balken-fuell" style=${{ width: Math.min(100, Math.max(0, anteil * 100)) + '%' }}></div></div>`;
+  const klasse = 'balken' + (gross ? ' gross' : '') + (ueber ? ' ueber' : '');
+  // [onClick]: antippbar, z. B. Quellen eines Nährwerts zeigen.
+  if (onClick) return html`<button class=${klasse + ' balken-knopf'} onClick=${onClick} aria-label=${`${name}: Quellen zeigen`}>${inhalt}</button>`;
+  return html`<div class=${klasse}>${inhalt}</div>`;
 }
 
 let feldNr = 0;

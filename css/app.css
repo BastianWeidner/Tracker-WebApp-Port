@@ -555,3 +555,8 @@ div.zeile-uebung { cursor: default; }
 .rb-unter { white-space: pre-line; margin: 0; }
 .rb-lob p { margin: 0 0 4px; color: var(--primary); }
 .rb-tipps p { margin: 0 0 4px; }
+/* Quellen eines Nährwerts (Essen-Tab, Balken antippen) */
+.quellen { display: flex; flex-direction: column; gap: 10px; margin: 8px 0; max-height: 55vh; overflow-y: auto; }
+.quelle .balken-zeile { font-size: 15px; }
+.quelle .balken-zeile > span:first-child { overflow-wrap: anywhere; }
+.balken-zeile .leise { color: var(--on-surface-variant); margin-right: 4px; }
